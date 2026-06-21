@@ -1,6 +1,6 @@
-import asyncio
+﻿import asyncio
 from dotenv import load_dotenv
-load_dotenv(override=True)
+load_dotenv()
 
 from motor.motor_asyncio import AsyncIOMotorClient
 from passlib.context import CryptContext

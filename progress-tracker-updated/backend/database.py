@@ -4,7 +4,7 @@ from pathlib import Path
 import motor.motor_asyncio
 from dotenv import load_dotenv
 
-load_dotenv(Path(__file__).resolve().parent / ".env", override=True)
+load_dotenv(Path(__file__).resolve().parent / ".env")
 
 MONGODB_URL = os.getenv("MONGODB_URL")
 if not MONGODB_URL or not MONGODB_URL.strip():

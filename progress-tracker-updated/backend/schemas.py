@@ -2,13 +2,31 @@ from pydantic import BaseModel, EmailStr, field_validator
 from typing import Optional, List
 from datetime import datetime
 
+import re
+
 # --- USER ---
 class UserBase(BaseModel):
     username: str
     email: EmailStr
 
+    @field_validator('email')
+    @classmethod
+    def validate_email_domain(cls, v: str) -> str:
+        email_regex = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+        if not re.match(email_regex, v):
+            raise ValueError('Invalid email format. Email must end with a valid domain suffix (e.g. .com, .org, .in)')
+        return v
+
 class UserCreate(UserBase):
     password: str
+
+    @field_validator('password')
+    @classmethod
+    def validate_password_length(cls, v: str) -> str:
+        if len(v) < 8 or len(v) > 12:
+            raise ValueError('Password must be between 8 and 12 characters long')
+        return v
+
 
 class UserResponse(UserBase):
     id: str
@@ -89,7 +107,6 @@ class TaskResponse(TaskBase):
     status: str
     assigned_by: str
     voice_note_path: Optional[str]
-    attachments: List[str] = []
     created_at: datetime
     submissions: List[TaskSubmissionResponse] = []
 

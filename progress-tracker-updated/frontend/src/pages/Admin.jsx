@@ -1,15 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import api from '../services/api';
 import useAuthStore from '../store/useAuthStore';
 import { getErrorMessage } from '../utils/apiError';
-import { Mic, Square, Paperclip } from 'lucide-react';
+import { Mic, Square } from 'lucide-react';
 
 export default function Admin() {
   const { user } = useAuthStore();
-  const navigate = useNavigate();
   const [users, setUsers] = useState([]);
   const [submissions, setSubmissions] = useState([]);
   const [submissionsLoading, setSubmissionsLoading] = useState(true);
@@ -31,9 +29,6 @@ export default function Admin() {
   const [audioBlob, setAudioBlob] = useState(null);
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
-
-  // Document Attachment State
-  const [attachmentFiles, setAttachmentFiles] = useState([]);
 
   const fetchSubmissions = async () => {
     setSubmissionsLoading(true);
@@ -160,14 +155,6 @@ export default function Admin() {
         });
       }
 
-      for (const file of attachmentFiles) {
-        const formData = new FormData();
-        formData.append('file', file);
-        await api.post(`/tasks/${taskRes.data.id}/attachments`, formData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
-        });
-      }
-
       // Reset form
       setTitle('');
       setDescription('');
@@ -176,7 +163,6 @@ export default function Admin() {
       setAudioURL('');
       setPriority('medium');
       setDeadline('');
-      setAttachmentFiles([]);
       toast.success('Task assigned successfully');
     } catch (err) {
       toast.error(getErrorMessage(err, 'Failed to create task'));
@@ -289,36 +275,6 @@ export default function Admin() {
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm text-gray-400 mb-2">Attachments (Optional)</label>
-              <label
-                htmlFor="task-attachments"
-                className="flex items-center gap-3 bg-white/5 p-4 rounded-lg border border-white/10 border-dashed cursor-pointer hover:bg-white/10 transition-colors"
-              >
-                <Paperclip size={18} className="text-gray-400 shrink-0" />
-                <span className="text-sm text-gray-400 truncate">
-                  {attachmentFiles.length > 0
-                    ? `${attachmentFiles.length} file${attachmentFiles.length > 1 ? 's' : ''} selected`
-                    : 'Click to attach PDF, DOC, or image files'}
-                </span>
-                <input
-                  id="task-attachments"
-                  type="file"
-                  multiple
-                  accept=".pdf,.doc,.docx,.txt,image/*"
-                  className="sr-only"
-                  onChange={e => setAttachmentFiles(Array.from(e.target.files))}
-                />
-              </label>
-              {attachmentFiles.length > 0 && (
-                <ul className="mt-2 space-y-1">
-                  {attachmentFiles.map((f, i) => (
-                    <li key={i} className="text-xs text-gray-500 truncate pl-1">• {f.name}</li>
-                  ))}
-                </ul>
-              )}
-            </div>
-
             <button
               type="submit"
               disabled={isCreatingTask}
@@ -356,13 +312,6 @@ export default function Admin() {
                     <p className="text-sm text-gray-500 mt-2">{submission.comment}</p>
                   )}
                   <div className="mt-3 flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => navigate(`/admin/submissions/${submission.id}`)}
-                      className="px-3 py-1 bg-neonBlue/20 text-neonBlue rounded text-sm hover:bg-neonBlue/40 transition-colors"
-                    >
-                      Review
-                    </button>
                     <button
                       type="button"
                       disabled={reviewingId === submission.id}

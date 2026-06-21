@@ -1,4 +1,4 @@
-from typing import Optional, Annotated, List
+from typing import Optional, Annotated
 from datetime import datetime, date
 from beanie import Document
 from beanie import Indexed
@@ -33,7 +33,6 @@ class Task(Document):
     assigned_to: Optional[str] = None # stores User's string ID
     assigned_by: Optional[str] = None # stores User's string ID (admin)
     voice_note_path: Optional[str] = None
-    attachments: List[str] = []
     created_at: datetime = Field(default_factory=get_utc_now)
 
     class Settings:

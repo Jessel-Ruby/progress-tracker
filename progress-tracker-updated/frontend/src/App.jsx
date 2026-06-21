@@ -8,7 +8,6 @@ import TaskDetail from './pages/TaskDetail';
 import Analytics from './pages/Analytics';
 import Leaderboard from './pages/Leaderboard';
 import Admin from './pages/Admin';
-import SubmissionReview from './pages/SubmissionReview';
 import AdminRoute from './components/AdminRoute';
 import useAuthStore from './store/useAuthStore';
 
@@ -56,7 +55,6 @@ function App() {
         <Route path="/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
         <Route path="/leaderboard" element={<ProtectedRoute><Leaderboard /></ProtectedRoute>} />
         <Route path="/admin" element={<AdminRoute><Admin /></AdminRoute>} />
-        <Route path="/admin/submissions/:id" element={<AdminRoute><SubmissionReview /></AdminRoute>} />
         
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>

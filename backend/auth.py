@@ -11,7 +11,7 @@ from fastapi.security import OAuth2PasswordBearer
 import models
 import schemas
 
-load_dotenv(Path(__file__).resolve().parent / ".env")
+load_dotenv(Path(__file__).resolve().parent / ".env", override=True)
 
 SECRET_KEY = os.getenv("SECRET_KEY")
 if not SECRET_KEY or not SECRET_KEY.strip():

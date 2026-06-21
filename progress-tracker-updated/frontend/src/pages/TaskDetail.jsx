@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
-import { UploadCloud, CheckCircle, FileAudio, Paperclip } from 'lucide-react';
+import { UploadCloud, CheckCircle, FileAudio } from 'lucide-react';
 import api from '../services/api';
 import { getErrorMessage } from '../utils/apiError';
 
@@ -90,43 +90,10 @@ export default function TaskDetail() {
             <FileAudio className="text-neonPurple w-8 h-8" />
             <div className="flex-1">
               <h4 className="text-sm font-semibold mb-2">Voice Instructions</h4>
-              <audio
-                src={
-                  task.voice_note_path.startsWith('http://') || task.voice_note_path.startsWith('https://')
-                    ? task.voice_note_path
-                    : `http://localhost:8000/${task.voice_note_path}`
-                }
-                controls
-                className="w-full h-10"
-              >
+              <audio controls className="w-full h-10">
+                <source src={`http://localhost:8000/${task.voice_note_path}`} type="audio/mpeg" />
                 Your browser does not support the audio element.
               </audio>
-            </div>
-          </div>
-        )}
-
-        {task.attachments && task.attachments.length > 0 && (
-          <div className="mb-8 p-4 bg-white/5 rounded-xl">
-            <h4 className="text-sm font-semibold mb-3 text-white flex items-center gap-2">
-              <Paperclip className="text-neonBlue w-5 h-5" />
-              <span>Task Attachments</span>
-            </h4>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {task.attachments.map((url, index) => {
-                const filename = decodeURIComponent(url.substring(url.lastIndexOf('/') + 1));
-                return (
-                  <a
-                    key={index}
-                    href={url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-between p-2.5 bg-black/20 hover:bg-white/10 border border-white/5 rounded-lg text-sm text-neonBlue hover:text-white transition-all truncate"
-                  >
-                    <span className="truncate flex-1 pr-4">{filename}</span>
-                    <span className="text-xs text-gray-500 hover:text-neonBlue underline shrink-0">Open File</span>
-                  </a>
-                );
-              })}
             </div>
           </div>
         )}

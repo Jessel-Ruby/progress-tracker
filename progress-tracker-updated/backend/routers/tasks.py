@@ -51,20 +51,6 @@ async def get_pending_submissions(current_user: models.User = Depends(auth.get_c
         )
     return results
 
-@router.get("/submissions/{submission_id}", response_model=schemas.AdminTaskSubmissionResponse)
-async def get_submission(submission_id: str, current_user: models.User = Depends(auth.get_current_admin_user)):
-    submission = await models.TaskSubmission.get(submission_id)
-    if not submission:
-        raise HTTPException(status_code=404, detail="Submission not found")
-    task = await models.Task.get(submission.task_id)
-    submitter = await models.User.get(submission.user_id)
-    return schemas.AdminTaskSubmissionResponse(
-        **submission.model_dump(exclude={'id'}),
-        id=str(submission.id),
-        task_title=task.title if task else "Unknown Task",
-        submitter_username=submitter.username if submitter else "Unknown",
-    )
-
 @router.post("/submissions/{submission_id}/approve", response_model=schemas.TaskSubmissionResponse)
 async def approve_submission(
     submission_id: str,
@@ -90,7 +76,6 @@ async def approve_submission(
 @router.post("/submissions/{submission_id}/reject", response_model=schemas.TaskSubmissionResponse)
 async def reject_submission(
     submission_id: str,
-    reason: str = "rejected",
     review: Optional[schemas.SubmissionReviewUpdate] = Body(None),
     current_user: models.User = Depends(auth.get_current_admin_user),
 ):
@@ -100,7 +85,7 @@ async def reject_submission(
     if submission.status != "pending":
         raise HTTPException(status_code=400, detail="Submission is not pending review")
 
-    submission.status = "revision_requested" if reason == "revision" else "rejected"
+    submission.status = "rejected"
     if review and review.feedback:
         submission.feedback = review.feedback
     await submission.save()
@@ -169,24 +154,6 @@ async def upload_voice_note(task_id: str, file: UploadFile = File(...), current_
     db_task.voice_note_path = await upload_to_cloudinary(file, "audio")
     await db_task.save()
     
-    submissions = await models.TaskSubmission.find(models.TaskSubmission.task_id == task_id).to_list()
-    return schemas.TaskResponse(
-        **db_task.model_dump(exclude={'id'}),
-        id=str(db_task.id),
-        submissions=[schemas.TaskSubmissionResponse(**s.model_dump(exclude={'id'}), id=str(s.id)) for s in submissions]
-    )
-
-@router.post("/{task_id}/attachments", response_model=schemas.TaskResponse)
-async def upload_attachment(task_id: str, file: UploadFile = File(...), current_user: models.User = Depends(auth.get_current_admin_user)):
-    db_task = await models.Task.get(task_id)
-    if not db_task:
-        raise HTTPException(status_code=404, detail="Task not found")
-
-    validate_document_upload(file)
-    url = await upload_to_cloudinary(file, "document")
-    db_task.attachments.append(url)
-    await db_task.save()
-
     submissions = await models.TaskSubmission.find(models.TaskSubmission.task_id == task_id).to_list()
     return schemas.TaskResponse(
         **db_task.model_dump(exclude={'id'}),
