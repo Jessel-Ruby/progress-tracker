@@ -1,44 +1,7 @@
-from pydantic import BaseModel, EmailStr, field_validator
-from typing import Optional, List
 from datetime import datetime
+from typing import Optional, List
+from pydantic import BaseModel
 
-# --- USER ---
-class UserBase(BaseModel):
-    username: str
-    email: EmailStr
-
-class UserCreate(UserBase):
-    password: str
-
-class UserResponse(UserBase):
-    id: str
-    role: str
-    xp: int
-    level: int
-    rank: str
-    streak: int
-    contribution_score: int
-    profile_image: Optional[str]
-    created_at: datetime
-
-    @field_validator('id', mode='before')
-    @classmethod
-    def convert_id(cls, v):
-        return str(v)
-
-    class Config:
-        from_attributes = True
-
-# --- AUTH ---
-class Token(BaseModel):
-    access_token: str
-    token_type: str
-
-class TokenData(BaseModel):
-    username: Optional[str] = None
-    role: Optional[str] = None
-
-# --- TASK SUBMISSION ---
 class TaskSubmissionBase(BaseModel):
     task_id: str
     comment: Optional[str] = None
@@ -52,6 +15,7 @@ class TaskSubmissionResponse(TaskSubmissionBase):
     file_path: Optional[str]
     status: str
     feedback: Optional[str]
+    reviewed_by: Optional[str] = None
     submitted_at: datetime
     
     class Config:
@@ -64,7 +28,6 @@ class AdminTaskSubmissionResponse(TaskSubmissionResponse):
 class SubmissionReviewUpdate(BaseModel):
     feedback: Optional[str] = None
 
-# --- TASK ---
 class TaskBase(BaseModel):
     title: str
     description: str
@@ -73,7 +36,7 @@ class TaskBase(BaseModel):
     assigned_to: Optional[str] = None
 
 class TaskCreate(TaskBase):
-    pass
+    department_id: Optional[str] = None  # If provided, overrides creator's own department (President/VP only)
 
 class TaskUpdate(BaseModel):
     title: Optional[str] = None
@@ -88,6 +51,7 @@ class TaskResponse(TaskBase):
     id: str
     status: str
     assigned_by: str
+    department_id: Optional[str] = None
     voice_note_path: Optional[str]
     attachments: List[str] = []
     created_at: datetime

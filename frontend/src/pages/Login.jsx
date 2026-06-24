@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Activity } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -6,20 +6,12 @@ import { useNavigate } from 'react-router-dom';
 import useAuthStore from '../store/useAuthStore';
 import api from '../services/api';
 import { getErrorMessage } from '../utils/apiError';
-
-// Returns { score: 0-3, label, color } for a given password string.
-function getPasswordStrength(pwd) {
-  if (pwd.length < 8) return { score: 0, label: 'Too Short', color: '#ef4444' };
-  let score = 0;
-  if (/[A-Z]/.test(pwd)) score++;
-  if (/[0-9]/.test(pwd)) score++;
-  if (/[^A-Za-z0-9]/.test(pwd)) score++;
-  if (score === 0) return { score: 1, label: 'Weak', color: '#f97316' };
-  if (score === 1) return { score: 2, label: 'Medium', color: '#eab308' };
-  return { score: 3, label: 'Strong', color: '#22c55e' };
-}
-
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+import {
+  SPECIAL_CHAR_REGEX,
+  EMAIL_REGEX,
+  getPasswordRules,
+  getStrengthFromRules,
+} from '../utils/passwordValidation';
 
 export default function Login() {
   const [isLogin, setIsLogin] = useState(true);
@@ -28,8 +20,28 @@ export default function Login() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
+  const [departments, setDepartments] = useState([]);
+  const [selectedDeptId, setSelectedDeptId] = useState('');
+  const [requestedRole, setRequestedRole] = useState('member');
   const { login, isLoading } = useAuthStore();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!isLogin) {
+      const fetchDepts = async () => {
+        try {
+          const res = await api.get('/departments/public');
+          setDepartments(res.data);
+          if (res.data.length > 0) {
+            setSelectedDeptId(res.data[0].id);
+          }
+        } catch (err) {
+          console.error('Failed to fetch departments:', err);
+        }
+      };
+      fetchDepts();
+    }
+  }, [isLogin]);
 
   // Reset all fields and switch mode
   const toggleMode = () => {
@@ -39,9 +51,12 @@ export default function Login() {
     setConfirmPassword('');
     setEmail('');
     setError('');
+    setSelectedDeptId('');
+    setRequestedRole('member');
   };
 
-  const strength = !isLogin ? getPasswordStrength(password) : null;
+  const passwordRules = !isLogin ? getPasswordRules(password) : null;
+  const strength = passwordRules ? getStrengthFromRules(passwordRules) : null;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -63,8 +78,50 @@ export default function Login() {
         toast.error(message);
         return;
       }
-      if (password.length < 8 || password.length > 12) {
-        const message = 'Password must be between 8 and 12 characters.';
+      if (password.length < 8) {
+        const message = 'Password must be at least 8 characters long.';
+        setError(message);
+        toast.error(message);
+        return;
+      }
+      if (password.length > 12) {
+        const message = 'Password cannot exceed 12 characters.';
+        setError(message);
+        toast.error(message);
+        return;
+      }
+      if (!/[A-Z]/.test(password)) {
+        const message = 'Password must contain at least one uppercase letter.';
+        setError(message);
+        toast.error(message);
+        return;
+      }
+      if (!/[a-z]/.test(password)) {
+        const message = 'Password must contain at least one lowercase letter.';
+        setError(message);
+        toast.error(message);
+        return;
+      }
+      if (!/[0-9]/.test(password)) {
+        const message = 'Password must contain at least one number.';
+        setError(message);
+        toast.error(message);
+        return;
+      }
+      if (!SPECIAL_CHAR_REGEX.test(password)) {
+        const message = 'Password must contain at least one special character.';
+        setError(message);
+        toast.error(message);
+        return;
+      }
+      if (/\s/.test(password)) {
+        const message = 'Password must not contain any spaces.';
+        setError(message);
+        toast.error(message);
+        return;
+      }
+      if (password.toLowerCase() === username.toLowerCase()) {
+        const message = 'Password must not be identical to the username.';
         setError(message);
         toast.error(message);
         return;
@@ -77,7 +134,13 @@ export default function Login() {
       }
 
       try {
-        await api.post('/auth/signup', { username, email, password });
+        await api.post('/auth/signup', {
+          username,
+          email,
+          password,
+          department_id: selectedDeptId || null,
+          requested_role: requestedRole,
+        });
         toast.success('Account created! Signing you in...');
         const result = await login(username, password);
         if (!result.success) {
@@ -134,16 +197,55 @@ export default function Login() {
           </div>
 
           {!isLogin && (
-            <div>
-              <label className="block text-sm text-gray-400 mb-1">Email</label>
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-neonBlue transition-colors"
-              />
-            </div>
+            <>
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">Email</label>
+                <input
+                  type="text"
+                  required
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-neonBlue transition-colors"
+                  placeholder="you@example.com"
+                />
+                {email.length > 0 && !EMAIL_REGEX.test(email) && (
+                  <p className="mt-1 text-xs text-red-400">Please enter a valid email address (e.g. name@gmail.com).</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">Department</label>
+                <select
+                  value={selectedDeptId}
+                  onChange={e => setSelectedDeptId(e.target.value)}
+                  className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-neonBlue transition-colors"
+                >
+                  {departments.length === 0 ? (
+                    <option value="" disabled className="bg-dark text-white">Loading departments...</option>
+                  ) : (
+                    departments.map(d => (
+                      <option key={d.id} value={d.id} className="bg-dark text-white">
+                        {d.name}
+                      </option>
+                    ))
+                  )}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">Requested Role</label>
+                <select
+                  value={requestedRole}
+                  onChange={e => setRequestedRole(e.target.value)}
+                  className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-neonBlue transition-colors"
+                >
+                  <option value="member" className="bg-dark text-white">Member</option>
+                  <option value="hod" className="bg-dark text-white">Department HOD</option>
+                  <option value="president" className="bg-dark text-white">President</option>
+                  <option value="vp" className="bg-dark text-white">Vice President</option>
+                </select>
+              </div>
+            </>
           )}
 
           <div>
@@ -151,14 +253,16 @@ export default function Login() {
             <input
               type="password"
               required
+              maxLength={12}
               value={password}
               onChange={e => setPassword(e.target.value)}
               className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-neonBlue transition-colors"
             />
 
-            {/* Password strength meter — signup only */}
-            {!isLogin && password.length > 0 && strength && (
-              <div className="mt-2">
+            {/* Password validation checklist — signup only */}
+            {!isLogin && password.length > 0 && passwordRules && strength && (
+              <div className="mt-3">
+                {/* Strength bar */}
                 <div className="flex gap-1 mb-1">
                   {[1, 2, 3].map((step) => (
                     <div
@@ -171,9 +275,33 @@ export default function Login() {
                     />
                   ))}
                 </div>
-                <p className="text-xs" style={{ color: strength.color }}>
+                <p className="text-xs mb-2" style={{ color: strength.color }}>
                   {strength.label}
                 </p>
+
+                {/* Rule checklist */}
+                <ul className="space-y-1">
+                  {passwordRules.map((rule) => (
+                    <li
+                      key={rule.key}
+                      className="flex items-center gap-2 text-xs transition-all duration-200"
+                      style={{ color: rule.met ? '#22c55e' : '#f87171' }}
+                    >
+                      <span
+                        className="inline-flex items-center justify-center w-4 h-4 rounded-full text-[10px] font-bold flex-shrink-0"
+                        style={{
+                          backgroundColor: rule.met ? 'rgba(34,197,94,0.15)' : 'rgba(248,113,113,0.15)',
+                          color: rule.met ? '#22c55e' : '#f87171',
+                        }}
+                      >
+                        {rule.met ? '✓' : '×'}
+                      </span>
+                      <span style={{ textDecoration: rule.met ? 'line-through' : 'none', opacity: rule.met ? 0.6 : 1 }}>
+                        {rule.label}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
               </div>
             )}
           </div>

@@ -1,12 +1,12 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from beanie import init_beanie
-from database import db
+from core.database import db
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 import models
-from routers import auth, tasks, analytics
+from routers import auth, tasks, analytics, departments
 
 app = FastAPI(
     title="Progress Tracker API",
@@ -29,14 +29,19 @@ async def startup_event():
             models.ActivityLog,
             models.Achievement,
             models.UserAchievement,
-            models.Notification
+            models.Notification,
+            models.Department
         ]
     )
 
 # Configure CORS for the React frontend
 origins = [
-    "http://localhost:5173", # Default Vite port
+    "http://localhost:5173",    # Default Vite port
+    "http://127.0.0.1:5173",   # IPv4 Vite port
+    "http://[::1]:5173",        # IPv6 Vite port
     "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://[::1]:3000",        # IPv6 port 3000
 ]
 
 app.add_middleware(
@@ -51,6 +56,7 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(tasks.router)
 app.include_router(analytics.router)
+app.include_router(departments.router)
 
 @app.get("/")
 def read_root():

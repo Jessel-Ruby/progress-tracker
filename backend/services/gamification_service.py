@@ -7,35 +7,30 @@ XP_THRESHOLDS = {
     4: 500,
     5: 1000,
     6: 2000,
-    7: 4000
+    7: 4000,
+    8: 7000,
+    9: 11000,
+    10: 16000,
+    11: 22000,
+    12: 30000,
+    13: 40000,
+    14: 52000,
+    15: 67000,
+    16: 85000,
+    17: 107000,
+    18: 133000,
+    19: 164000,
+    20: 200000
 }
 
-RANKS = [
-    (0, "Beginner"),
-    (100, "Contributor"),
-    (500, "Active Member"),
-    (1000, "Specialist"),
-    (2000, "Elite Contributor"),
-    (4000, "Team Leader"),
-    (8000, "Legend")
-]
-
-def calculate_level_and_rank(xp: int):
+def calculate_level(xp: int) -> int:
     level = 1
     for lvl, threshold in XP_THRESHOLDS.items():
         if xp >= threshold:
             level = lvl
         else:
             break
-            
-    rank = "Beginner"
-    for threshold, r in RANKS:
-        if xp >= threshold:
-            rank = r
-        else:
-            break
-            
-    return level, rank
+    return level
 
 async def award_xp(user_id: str, amount: int, activity_type: str):
     user = await models.User.get(user_id)
@@ -43,7 +38,7 @@ async def award_xp(user_id: str, amount: int, activity_type: str):
         return None
         
     user.xp += amount
-    user.level, user.rank = calculate_level_and_rank(user.xp)
+    user.level = calculate_level(user.xp)
     
     user.contribution_score += (amount // 10)
     

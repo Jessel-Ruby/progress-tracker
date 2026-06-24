@@ -1,7 +1,7 @@
 
 import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, CheckSquare, BarChart2, Trophy, Shield, LogOut, Menu } from 'lucide-react';
+import { LayoutDashboard, CheckSquare, BarChart2, Trophy, Shield, LogOut, Menu, UserCircle } from 'lucide-react';
 import useAuthStore from '../store/useAuthStore';
 
 export default function Sidebar() {
@@ -13,9 +13,11 @@ export default function Sidebar() {
     { to: '/tasks', icon: CheckSquare, label: 'Tasks' },
     { to: '/analytics', icon: BarChart2, label: 'Analytics' },
     { to: '/leaderboard', icon: Trophy, label: 'Leaderboard' },
+    { to: '/profile', icon: UserCircle, label: 'Profile' },
   ];
 
-  if (user?.role === 'admin') {
+  const isAdminOrHOD = user && (user.role === 'hod' || user.is_president || user.is_vice_president);
+  if (isAdminOrHOD) {
     links.push({ to: '/admin', icon: Shield, label: 'Admin' });
   }
 
@@ -76,12 +78,20 @@ export default function Sidebar() {
 
         <div className="p-4 border-t border-white/10">
           <div className="flex items-center gap-3 mb-4 px-4">
-            <div className="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center font-bold text-white">
-              {user?.username?.charAt(0).toUpperCase()}
-            </div>
+            {user?.profile_image ? (
+              <img
+                src={user.profile_image}
+                alt={user.username}
+                className="w-10 h-10 rounded-full object-cover ring-2 ring-neonBlue/30"
+              />
+            ) : (
+              <div className="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center font-bold text-white">
+                {user?.username?.charAt(0).toUpperCase()}
+              </div>
+            )}
             <div className="flex-1 overflow-hidden">
               <p className="text-sm font-bold text-white truncate">{user?.username}</p>
-              <p className="text-xs text-gray-500 truncate">{user?.rank}</p>
+              <p className="text-xs text-gray-500 truncate">Level {user?.level ?? 1}</p>
             </div>
           </div>
           <button

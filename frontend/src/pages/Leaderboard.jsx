@@ -59,7 +59,6 @@ export default function Leaderboard() {
               <th className="p-4 text-gray-400 font-semibold w-16 text-center">Rank</th>
               <th className="p-4 text-gray-400 font-semibold">User</th>
               <th className="p-4 text-gray-400 font-semibold text-center">Level</th>
-              <th className="p-4 text-gray-400 font-semibold text-center">Rank Title</th>
               <th className="p-4 text-gray-400 font-semibold text-right">XP</th>
             </tr>
           </thead>
@@ -93,11 +92,6 @@ export default function Leaderboard() {
                   </td>
                   <td className="p-4 text-center font-medium text-gray-300">
                     {user.level}
-                  </td>
-                  <td className="p-4 text-center">
-                    <span className="px-3 py-1 bg-white/10 rounded-full text-xs font-semibold text-gray-300 border border-white/10">
-                      {user.rank}
-                    </span>
                   </td>
                   <td className="p-4 text-right font-mono text-neonBlue font-bold">
                     {user.xp.toLocaleString()} XP

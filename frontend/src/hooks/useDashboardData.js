@@ -4,7 +4,28 @@ import api from '../services/api';
 import useAuthStore from '../store/useAuthStore';
 import { getErrorMessage } from '../utils/apiError';
 
-const XP_THRESHOLDS = { 1: 0, 2: 100, 3: 250, 4: 500, 5: 1000, 6: 2000, 7: 4000 };
+const XP_THRESHOLDS = {
+  1: 0,
+  2: 100,
+  3: 250,
+  4: 500,
+  5: 1000,
+  6: 2000,
+  7: 4000,
+  8: 7000,
+  9: 11000,
+  10: 16000,
+  11: 22000,
+  12: 30000,
+  13: 40000,
+  14: 52000,
+  15: 67000,
+  16: 85000,
+  17: 107000,
+  18: 133000,
+  19: 164000,
+  20: 200000,
+};
 
 const PENDING_STATUSES = ['pending', 'in_progress', 'in_review'];
 
@@ -56,7 +77,7 @@ export function getStatusStyle(status) {
   return STATUS_STYLES[status] || STATUS_STYLES.pending;
 }
 
-export default function useDashboardData() {
+export default function useDashboardData(activityId = '') {
   const { user } = useAuthStore();
   const [tasks, setTasks] = useState([]);
   const [leaderboardTopPercent, setLeaderboardTopPercent] = useState(null);
@@ -65,7 +86,30 @@ export default function useDashboardData() {
   const [achievements, setAchievements] = useState([]);
   const [achievementsLoading, setAchievementsLoading] = useState(true);
   const [achievementsError, setAchievementsError] = useState(null);
+  const [departments, setDepartments] = useState([]);
+  const [departmentsLoading, setDepartmentsLoading] = useState(true);
 
+  // Fetch departments once on mount
+  useEffect(() => {
+    let cancelled = false;
+    setDepartmentsLoading(true);
+    api
+      .get('/departments')
+      .then((res) => {
+        if (!cancelled) setDepartments(res.data);
+      })
+      .catch(() => {
+        // Non-critical — silently ignore
+      })
+      .finally(() => {
+        if (!cancelled) setDepartmentsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Re-fetch tasks + leaderboard whenever activityId changes
   useEffect(() => {
     let cancelled = false;
 
@@ -74,8 +118,9 @@ export default function useDashboardData() {
       setError(null);
 
       try {
+        const taskParams = activityId ? { activity_id: activityId } : {};
         const [tasksRes, leaderboardRes] = await Promise.all([
-          api.get('/tasks'),
+          api.get('/tasks', { params: taskParams }),
           api.get('/analytics/leaderboard', { params: { limit: 50 } }),
         ]);
 
@@ -126,7 +171,7 @@ export default function useDashboardData() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [activityId]);
 
   const pendingTasks = tasks.filter((task) => PENDING_STATUSES.includes(task.status));
 
@@ -139,9 +184,21 @@ export default function useDashboardData() {
     .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
     .slice(0, 3);
 
+  // Tasks not yet completed that are due within the next 7 days
+  const dueThisWeekTasks = tasks
+    .filter(
+      (t) =>
+        t.status !== 'completed' &&
+        t.deadline &&
+        new Date(t.deadline) - new Date() < 86400000 * 7
+    )
+    .sort((a, b) => new Date(a.deadline) - new Date(b.deadline));
+
   return {
     user,
+    tasks,
     pendingCount: pendingTasks.length,
+    dueThisWeekTasks,
     dueTodayCount,
     recentTasks,
     leaderboardTopPercent,
@@ -151,5 +208,7 @@ export default function useDashboardData() {
     achievements,
     achievementsLoading,
     achievementsError,
+    departments,
+    departmentsLoading,
   };
 }

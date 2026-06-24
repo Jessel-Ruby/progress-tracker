@@ -1,4 +1,5 @@
 
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Target, Zap, Clock, Activity } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -9,9 +10,12 @@ import useDashboardData, {
 } from '../hooks/useDashboardData';
 
 export default function Dashboard() {
+  const [activityId, setActivityId] = useState('');
+
   const {
     user,
     pendingCount,
+    dueThisWeekTasks,
     dueTodayCount,
     recentTasks,
     leaderboardTopPercent,
@@ -21,7 +25,9 @@ export default function Dashboard() {
     achievements,
     achievementsLoading,
     achievementsError,
-  } = useDashboardData();
+    departments,
+    departmentsLoading,
+  } = useDashboardData(activityId);
 
   if (loading) {
     return (
@@ -75,8 +81,8 @@ export default function Dashboard() {
         <div className="glass-panel p-6 border-t-2 border-neonPurple">
           <div className="flex justify-between items-start mb-4">
             <div>
-              <p className="text-sm text-gray-400">Current Rank</p>
-              <h3 className="text-xl font-bold text-white">{user?.rank}</h3>
+              <p className="text-sm text-gray-400">Current Level</p>
+              <h3 className="text-2xl font-bold text-white">Level {user?.level ?? 1}</h3>
             </div>
             <Target className="text-neonPurple" />
           </div>
@@ -85,7 +91,7 @@ export default function Dashboard() {
               Top {leaderboardTopPercent}%
             </p>
           ) : (
-            <p className="text-xs text-gray-500">Level {user?.level ?? 1}</p>
+            <p className="text-xs text-gray-500">Keep going!</p>
           )}
         </div>
 
@@ -116,13 +122,93 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* Due This Week card */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.15 }}
+        className="glass-panel p-6 mb-8 border-t-2 border-orange-400"
+      >
+        <div className="flex justify-between items-center mb-5 border-b border-white/10 pb-4">
+          <h2 className="text-xl font-bold text-white">Due This Week</h2>
+          <Link to="/tasks" className="text-sm text-orange-400 hover:underline">
+            View All
+          </Link>
+        </div>
+
+        {dueThisWeekTasks.length === 0 ? (
+          <div className="flex flex-col items-center py-6 gap-2">
+            <span className="text-4xl">🎉</span>
+            <p className="text-green-400 font-semibold">All caught up!</p>
+            <p className="text-xs text-gray-500">No tasks due this week.</p>
+          </div>
+        ) : (
+          <div className="flex flex-col sm:flex-row gap-6 items-start">
+            {/* Big pending count */}
+            <div className="flex flex-col items-center justify-center min-w-[100px]">
+              <span className="text-6xl font-extrabold text-orange-400 leading-none">
+                {dueThisWeekTasks.length}
+              </span>
+              <span className="text-xs text-gray-400 mt-1 uppercase tracking-widest text-center">
+                Due This Week
+              </span>
+            </div>
+
+            {/* Urgent task list */}
+            <div className="flex-1 w-full">
+              <p className="text-xs text-orange-400 font-semibold uppercase tracking-wider mb-3">
+                ⚡ Tasks due within 7 days
+              </p>
+              <ul className="space-y-2">
+                {dueThisWeekTasks.slice(0, 3).map((task) => (
+                  <li key={task.id}>
+                    <Link
+                      to={`/tasks/${task.id}`}
+                      className="flex items-center justify-between p-3 rounded-xl bg-orange-500/10 border border-orange-500/20 hover:bg-orange-500/20 transition-colors group"
+                    >
+                      <span className="text-sm font-medium text-white group-hover:text-orange-300 transition-colors truncate mr-4">
+                        {task.title}
+                      </span>
+                      <span className="text-xs text-orange-400 whitespace-nowrap">
+                        {formatTaskDeadline(task.deadline)}
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+              {dueThisWeekTasks.length > 3 && (
+                <p className="text-xs text-gray-500 mt-2 text-right">
+                  +{dueThisWeekTasks.length - 3} more task{dueThisWeekTasks.length - 3 !== 1 ? 's' : ''}
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+      </motion.div>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 glass-panel p-6">
-          <div className="flex justify-between items-center mb-6 border-b border-white/10 pb-4">
+          <div className="flex flex-wrap justify-between items-center mb-6 border-b border-white/10 pb-4 gap-3">
             <h2 className="text-xl font-bold text-white">Recent Tasks</h2>
-            <Link to="/tasks" className="text-sm text-neonBlue hover:underline">
-              View All
-            </Link>
+            <div className="flex items-center gap-3">
+              <select
+                id="department-filter"
+                value={activityId}
+                onChange={(e) => setActivityId(e.target.value)}
+                disabled={departmentsLoading}
+                className="text-sm rounded-lg px-3 py-1.5 bg-white/10 border border-white/20 text-gray-200 focus:outline-none focus:border-neonBlue focus:ring-1 focus:ring-neonBlue transition-colors cursor-pointer disabled:opacity-50"
+              >
+                <option value="">All Departments</option>
+                {departments.map((act) => (
+                  <option key={act.id} value={act.id}>
+                    {act.name}
+                  </option>
+                ))}
+              </select>
+              <Link to="/tasks" className="text-sm text-neonBlue hover:underline whitespace-nowrap">
+                View All
+              </Link>
+            </div>
           </div>
           <div className="space-y-4">
             {recentTasks.length === 0 ? (

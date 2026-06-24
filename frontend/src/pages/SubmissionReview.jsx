@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import api from '../services/api';
 import { getErrorMessage } from '../utils/apiError';
+import { formatDate, isImage } from '../utils/dateFormatters';
 import { ArrowLeft, FileText, ExternalLink, Clock, User, MessageSquare } from 'lucide-react';
 
 export default function SubmissionReview() {
@@ -77,20 +78,6 @@ export default function SubmissionReview() {
     }
   };
 
-  const formatDate = (iso) => {
-    return new Date(iso).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
-
-  const isImage = (path) => {
-    if (!path) return false;
-    return /\.(jpg|jpeg|png|gif|webp|svg|bmp)(\?|$)/i.test(path);
-  };
 
   // Loading state
   if (loading) {

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   DndContext,
   closestCorners,
@@ -16,10 +16,20 @@ import {
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import toast from 'react-hot-toast';
+import { Pencil, Trash2 } from 'lucide-react';
 import api from '../services/api';
 import { getErrorMessage } from '../utils/apiError';
+import useAuthStore from '../store/useAuthStore';
 
-const SortableTaskItem = ({ id, task }) => {
+/** Mirror of backend can_edit_task — HOD in same dept only; President/VP are read-only. */
+function canEditTask(user, task) {
+  if (!user || user.status !== 'active') return false;
+  if (user.is_president || user.is_vice_president) return false;
+  if (user.role === 'hod' && user.department_id && user.department_id === task.department_id) return true;
+  return false;
+}
+
+const SortableTaskItem = ({ id, task, currentUser, onDelete, onEdit }) => {
   const {
     attributes,
     listeners,
@@ -33,36 +43,63 @@ const SortableTaskItem = ({ id, task }) => {
     transition,
   };
 
+  const canEdit = canEditTask(currentUser, task);
+
   return (
     <div
       ref={setNodeRef}
       style={style}
       {...attributes}
-      {...listeners}
-      className="glass-panel p-4 mb-3 cursor-grab active:cursor-grabbing hover:border-neonBlue transition-colors"
+      className="glass-panel p-4 mb-3 hover:border-neonBlue transition-colors"
     >
-      <Link
-        to={`/tasks/${task.id}`}
-        onClick={e => e.stopPropagation()}
-        className="block no-underline"
-      >
-        <h4 className="font-semibold text-white">{task.title}</h4>
-        <p className="text-sm text-gray-400 mt-1 line-clamp-2">{task.description}</p>
-        <div className="flex justify-between items-center mt-3 text-xs">
-          <span className={`px-2 py-1 rounded-full ${
-            task.priority === 'high' ? 'bg-red-500/20 text-red-400' :
-            task.priority === 'medium' ? 'bg-yellow-500/20 text-yellow-400' :
-            'bg-green-500/20 text-green-400'
-          }`}>
-            {task.priority}
-          </span>
+      {/* Drag handle — separate from the action buttons */}
+      <div {...listeners} className="cursor-grab active:cursor-grabbing">
+        <Link
+          to={`/tasks/${task.id}`}
+          onClick={e => e.stopPropagation()}
+          className="block no-underline"
+        >
+          <h4 className="font-semibold text-white">{task.title}</h4>
+          <p className="text-sm text-gray-400 mt-1 line-clamp-2">{task.description}</p>
+          <div className="flex justify-between items-center mt-3 text-xs">
+            <span className={`px-2 py-1 rounded-full ${
+              task.priority === 'high' ? 'bg-red-500/20 text-red-400' :
+              task.priority === 'medium' ? 'bg-yellow-500/20 text-yellow-400' :
+              'bg-green-500/20 text-green-400'
+            }`}>
+              {task.priority}
+            </span>
+          </div>
+        </Link>
+      </div>
+
+      {canEdit && (
+        <div className="flex gap-2 mt-3 pt-2 border-t border-white/10">
+          <button
+            id={`edit-task-${task.id}`}
+            type="button"
+            onClick={e => { e.stopPropagation(); onEdit(task); }}
+            className="flex items-center gap-1 px-2 py-1 text-xs rounded bg-neonBlue/10 text-neonBlue hover:bg-neonBlue/25 transition-colors"
+            title="Edit task"
+          >
+            <Pencil size={12} /> Edit
+          </button>
+          <button
+            id={`delete-task-${task.id}`}
+            type="button"
+            onClick={e => { e.stopPropagation(); onDelete(task.id); }}
+            className="flex items-center gap-1 px-2 py-1 text-xs rounded bg-red-500/10 text-red-400 hover:bg-red-500/25 transition-colors"
+            title="Delete task"
+          >
+            <Trash2 size={12} /> Delete
+          </button>
         </div>
-      </Link>
+      )}
     </div>
   );
 };
 
-const TaskColumn = ({ id, title, tasks }) => {
+const TaskColumn = ({ id, title, tasks, currentUser, onDelete, onEdit }) => {
   return (
     <div className="bg-white/5 rounded-2xl p-4 min-w-[300px] border border-white/5">
       <h3 className="font-bold text-lg mb-4 text-gray-200 border-b border-white/10 pb-2">{title}</h3>
@@ -73,7 +110,14 @@ const TaskColumn = ({ id, title, tasks }) => {
       >
         <div className="min-h-[200px]">
           {tasks.map(task => (
-            <SortableTaskItem key={task.id} id={task.id} task={task} />
+            <SortableTaskItem
+              key={task.id}
+              id={task.id}
+              task={task}
+              currentUser={currentUser}
+              onDelete={onDelete}
+              onEdit={onEdit}
+            />
           ))}
         </div>
       </SortableContext>
@@ -82,6 +126,8 @@ const TaskColumn = ({ id, title, tasks }) => {
 };
 
 export default function TaskBoard() {
+  const navigate = useNavigate();
+  const { user } = useAuthStore();
   const [tasks, setTasks] = useState({
     pending: [],
     in_progress: [],
@@ -133,12 +179,12 @@ export default function TaskBoard() {
     }
 
     const activeItem = tasks[activeContainer].find(t => t.id === active.id);
-    
+
     // Optimistic UI update
     setTasks(prev => {
       const activeItems = prev[activeContainer].filter(t => t.id !== active.id);
       const overItems = [...prev[overContainer], { ...activeItem, status: overContainer }];
-      
+
       return {
         ...prev,
         [activeContainer]: activeItems,
@@ -148,7 +194,7 @@ export default function TaskBoard() {
 
     setIsUpdating(true);
     try {
-      await api.patch(`/tasks/${active.id}`, { status: overContainer });
+      await api.put(`/tasks/${active.id}`, { status: overContainer });
       toast.success('Task status updated');
     } catch (err) {
       toast.error(getErrorMessage(err, 'Failed to update task status'));
@@ -156,6 +202,27 @@ export default function TaskBoard() {
     } finally {
       setIsUpdating(false);
     }
+  };
+
+  const handleDelete = async (taskId) => {
+    if (!window.confirm('Are you sure you want to delete this task? This will also remove all its submissions.')) return;
+    try {
+      await api.delete(`/tasks/${taskId}`);
+      setTasks(prev => {
+        const next = {};
+        for (const col of Object.keys(prev)) {
+          next[col] = prev[col].filter(t => t.id !== taskId);
+        }
+        return next;
+      });
+      toast.success('Task deleted');
+    } catch (err) {
+      toast.error(getErrorMessage(err, 'Failed to delete task'));
+    }
+  };
+
+  const handleEdit = (task) => {
+    navigate('/admin', { state: { editTask: task } });
   };
 
   if (isLoading) {
@@ -169,10 +236,10 @@ export default function TaskBoard() {
       onDragEnd={handleDragEnd}
     >
       <div className={`flex gap-6 overflow-x-auto pb-4 ${isUpdating ? 'opacity-60 pointer-events-none' : ''}`}>
-        <TaskColumn id="pending" title="To Do" tasks={tasks.pending} />
-        <TaskColumn id="in_progress" title="In Progress" tasks={tasks.in_progress} />
-        <TaskColumn id="in_review" title="In Review" tasks={tasks.in_review} />
-        <TaskColumn id="completed" title="Done" tasks={tasks.completed} />
+        <TaskColumn id="pending" title="To Do" tasks={tasks.pending} currentUser={user} onDelete={handleDelete} onEdit={handleEdit} />
+        <TaskColumn id="in_progress" title="In Progress" tasks={tasks.in_progress} currentUser={user} onDelete={handleDelete} onEdit={handleEdit} />
+        <TaskColumn id="in_review" title="In Review" tasks={tasks.in_review} currentUser={user} onDelete={handleDelete} onEdit={handleEdit} />
+        <TaskColumn id="completed" title="Done" tasks={tasks.completed} currentUser={user} onDelete={handleDelete} onEdit={handleEdit} />
       </div>
     </DndContext>
   );

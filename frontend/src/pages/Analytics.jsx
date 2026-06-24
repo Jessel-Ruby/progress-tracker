@@ -1,52 +1,37 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import Heatmap from '../components/Heatmap';
-import useAuthStore from '../store/useAuthStore';
+import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, YAxis } from 'recharts';
 import api from '../services/api';
-import { Zap, Trophy, Target, Star } from 'lucide-react';
-
+import useAuthStore from '../store/useAuthStore';
+import { Zap, Trophy, Target, Star, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { getErrorMessage } from '../utils/apiError';
 
 export default function Analytics() {
   const { user } = useAuthStore();
-  const [heatmapData, setHeatmapData] = useState([]);
-  
-  // Dummy data for charts (would be replaced with real backend data)
-  const taskCompletionData = [
-    { name: 'Mon', completed: 4 },
-    { name: 'Tue', completed: 3 },
-    { name: 'Wed', completed: 7 },
-    { name: 'Thu', completed: 2 },
-    { name: 'Fri', completed: 6 },
-    { name: 'Sat', completed: 1 },
-    { name: 'Sun', completed: 5 },
-  ];
+  const [taskCompletionData, setTaskCompletionData] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const [loading, setLoading] = useState(false);
   useEffect(() => {
-    const fetchHeatmap = async () => {
-      setLoading(true);
+    if (!user) return;
+    const fetchAnalytics = async () => {
       try {
-        const res = await api.get('/analytics/heatmap');
-        setHeatmapData(res.data);
+        setLoading(true);
+        const res = await api.get('/analytics/tasks-completed-by-day?days=7');
+        setTaskCompletionData(res.data);
       } catch (err) {
-        toast.error(getErrorMessage(err, 'Failed to fetch heatmap data'));
+        toast.error(getErrorMessage(err, 'Failed to fetch task completion data'));
       } finally {
         setLoading(false);
       }
     };
-    fetchHeatmap();
-  }, []);
+    fetchAnalytics();
+  }, [user]);
 
   if (!user) return null;
 
   return (
     <div className="p-8">
-      {loading && (
-        <div className="mb-4 text-center text-gray-400">Loading analytics...</div>
-      )}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -80,8 +65,8 @@ export default function Analytics() {
             <Trophy size={24} />
           </div>
           <div>
-            <p className="text-sm text-gray-400">Current Rank</p>
-            <p className="text-xl font-bold text-white truncate">{user.rank}</p>
+            <p className="text-sm text-gray-400">Contribution Score</p>
+            <p className="text-2xl font-bold text-white truncate">{user.contribution_score ?? 0}</p>
           </div>
         </div>
         <div className="glass-panel p-6 flex items-center gap-4">
@@ -95,18 +80,21 @@ export default function Analytics() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="glass-panel p-6 lg:col-span-2">
-          <h3 className="text-xl font-bold mb-6 text-white">Contribution Heatmap</h3>
-          <Heatmap data={heatmapData} />
-        </div>
-        
-        <div className="glass-panel p-6">
-          <h3 className="text-xl font-bold mb-6 text-white">Tasks Completed (7 Days)</h3>
-          <div className="h-64">
+      <div className="glass-panel p-6">
+        <h3 className="text-xl font-bold mb-6 text-white">Tasks Completed (7 Days)</h3>
+        <div className="h-64 flex items-center justify-center">
+          {loading ? (
+            <div className="flex flex-col items-center gap-2 text-gray-400">
+              <Loader2 className="animate-spin" size={32} />
+              <p>Loading chart data...</p>
+            </div>
+          ) : taskCompletionData.length === 0 ? (
+            <div className="text-gray-500">No data available for the last 7 days.</div>
+          ) : (
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={taskCompletionData}>
                 <XAxis dataKey="name" stroke="#666" />
+                <YAxis allowDecimals={false} stroke="#666" />
                 <Tooltip
                   cursor={{ fill: 'rgba(255,255,255,0.05)' }}
                   contentStyle={{ backgroundColor: '#1a1a2e', border: '1px solid rgba(255,255,255,0.1)' }}
@@ -114,9 +102,10 @@ export default function Analytics() {
                 <Bar dataKey="completed" fill="#00f3ff" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
-          </div>
+          )}
         </div>
       </div>
     </div>
   );
 }
+

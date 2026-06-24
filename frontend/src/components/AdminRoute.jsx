@@ -18,7 +18,8 @@ export default function AdminRoute({ children }) {
     return <Navigate to="/login" replace />;
   }
 
-  if (user.role !== 'admin') {
+  const isAuthorized = user && user.status === 'active' && (user.role === 'hod' || user.is_president || user.is_vice_president);
+  if (!isAuthorized) {
     return <Navigate to="/" replace />;
   }
 
