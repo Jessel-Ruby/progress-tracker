@@ -171,7 +171,7 @@ export default function Login() {
         <div className="text-center mb-8">
           <Activity className="w-12 h-12 mx-auto mb-4 text-neonBlue" />
           <h1 className="text-2xl font-bold text-white mb-2">
-            {isLogin ? 'Welcome Back' : 'Join Progress Tracker'}
+            {isLogin ? 'Welcome Back' : 'Join ProTrack'}
           </h1>
           <p className="text-gray-400 text-sm">
             {isLogin ? 'Sign in to track your productivity.' : 'Create an account to start tracking.'}
@@ -326,7 +326,7 @@ export default function Login() {
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full py-3 rounded-lg bg-gradient-to-r from-neonBlue to-neonPurple text-white font-bold hover:opacity-90 transition-opacity"
+            className="w-full py-3 rounded-lg bg-[#9AD872] text-[#0a0f0a] font-bold hover:opacity-90 transition-opacity"
           >
             {isLoading ? 'Processing...' : (isLogin ? 'Sign In' : 'Sign Up')}
           </button>

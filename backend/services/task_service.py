@@ -2,14 +2,26 @@ from typing import List, Optional
 from fastapi import HTTPException
 import models
 import schemas
-from core.permissions import can_view_task, can_edit_task, can_view_department
+from core.permissions import can_view_task, can_edit_task, can_view_department, can_delete_task
+
+from datetime import timedelta
+from models.user import get_utc_now
 
 async def assemble_task_response(task: models.Task) -> schemas.TaskResponse:
     """Assembles a TaskResponse by fetching the task's submissions."""
     submissions = await models.TaskSubmission.find(models.TaskSubmission.task_id == str(task.id)).to_list()
+    
+    assigned_by_user = await models.User.get(task.assigned_by) if task.assigned_by else None
+    assigned_by_username = assigned_by_user.username if assigned_by_user else None
+
+    assigned_to_user = await models.User.get(task.assigned_to) if task.assigned_to else None
+    assigned_to_username = assigned_to_user.username if assigned_to_user else None
+
     return schemas.TaskResponse(
         **task.model_dump(exclude={'id'}),
         id=str(task.id),
+        assigned_by_username=assigned_by_username,
+        assigned_to_username=assigned_to_username,
         submissions=[
             schemas.TaskSubmissionResponse(**{**s.model_dump(exclude={'id'}), 'id': str(s.id)})
             for s in submissions
@@ -20,30 +32,45 @@ async def get_tasks(
     current_user: models.User,
     skip: int = 0,
     limit: int = 20,
-    department_id: Optional[str] = None
+    department_id: Optional[str] = None,
+    assigned_to_me: bool = False,
+    assigned_by_me: bool = False
 ) -> List[schemas.TaskResponse]:
     """Retrieves tasks based on user role and department scoping."""
     if current_user.status != "active":
         return []
 
-    if department_id and not can_view_department(current_user, department_id):
-        raise HTTPException(status_code=403, detail="Not authorized to view this department")
-
-    if current_user.is_president or current_user.is_vice_president:
-        if department_id:
-            tasks = await models.Task.find(models.Task.department_id == department_id).skip(skip).limit(limit).to_list()
-        else:
-            tasks = await models.Task.find_all().skip(skip).limit(limit).to_list()
-    elif current_user.role == "hod":
-        user_dept = current_user.department_id
-        if department_id and department_id != user_dept:
-            raise HTTPException(status_code=403, detail="Not authorized to view other departments")
-        tasks = await models.Task.find(models.Task.department_id == user_dept).skip(skip).limit(limit).to_list()
-    else:
-        # Regular member
-        if department_id and department_id != current_user.department_id:
-            raise HTTPException(status_code=403, detail="Not authorized to view other departments")
+    if assigned_by_me:
+        seven_days_ago = get_utc_now() - timedelta(days=7)
+        tasks = (
+            await models.Task.find(
+                models.Task.assigned_by == str(current_user.id),
+                models.Task.created_at >= seven_days_ago
+            )
+            .sort(-models.Task.created_at)
+            .to_list()
+        )
+    elif assigned_to_me:
         tasks = await models.Task.find(models.Task.assigned_to == str(current_user.id)).skip(skip).limit(limit).to_list()
+    else:
+        if department_id and not can_view_department(current_user, department_id):
+            raise HTTPException(status_code=403, detail="Not authorized to view this department")
+
+        if current_user.is_president or current_user.is_vice_president:
+            if department_id:
+                tasks = await models.Task.find(models.Task.department_id == department_id).skip(skip).limit(limit).to_list()
+            else:
+                tasks = await models.Task.find_all().skip(skip).limit(limit).to_list()
+        elif current_user.role == "hod":
+            user_dept = current_user.department_id
+            if department_id and department_id != user_dept:
+                raise HTTPException(status_code=403, detail="Not authorized to view other departments")
+            tasks = await models.Task.find(models.Task.department_id == user_dept).skip(skip).limit(limit).to_list()
+        else:
+            # Regular member
+            if department_id and department_id != current_user.department_id:
+                raise HTTPException(status_code=403, detail="Not authorized to view other departments")
+            tasks = await models.Task.find(models.Task.assigned_to == str(current_user.id)).skip(skip).limit(limit).to_list()
     
     return [await assemble_task_response(t) for t in tasks]
 
@@ -75,10 +102,17 @@ async def create_task(task_in: schemas.TaskCreate, creator_id: str) -> schemas.T
         if not dept:
             raise HTTPException(status_code=404, detail="Department not found")
     else:
-        # Regular HODs are locked to their own department
-        if not creator.department_id:
-            raise HTTPException(status_code=403, detail="You are not assigned to a department")
-        target_dept_id = creator.department_id
+        # Regular HODs assign to assignee's department first, or fall back to their own department
+        target_dept_id = None
+        if task_in.assigned_to:
+            assignee = await models.User.get(task_in.assigned_to)
+            if assignee:
+                target_dept_id = assignee.department_id
+
+        if not target_dept_id:
+            if not creator.department_id:
+                raise HTTPException(status_code=403, detail="You are not assigned to a department")
+            target_dept_id = creator.department_id
 
     task_data = task_in.model_dump(exclude={"department_id"})
     db_task = models.Task(
@@ -87,7 +121,7 @@ async def create_task(task_in: schemas.TaskCreate, creator_id: str) -> schemas.T
         department_id=target_dept_id
     )
     await db_task.insert()
-    return schemas.TaskResponse(**db_task.model_dump(exclude={'id'}), id=str(db_task.id), submissions=[])
+    return await assemble_task_response(db_task)
 
 async def update_task(task_id: str, task_update: schemas.TaskUpdate, current_user: models.User) -> schemas.TaskResponse:
     """Updates task status or other fields based on permissions."""
@@ -95,7 +129,7 @@ async def update_task(task_id: str, task_update: schemas.TaskUpdate, current_use
     if not db_task:
         raise HTTPException(status_code=404, detail="Task not found")
     
-    if not can_edit_task(current_user, db_task):
+    if not can_edit_task(current_user, db_task) and not can_delete_task(current_user, db_task):
         # Check if the user is assigned to this task (to allow status changes)
         if db_task.assigned_to != str(current_user.id):
             raise HTTPException(status_code=403, detail="Not authorized to update this task")
@@ -113,13 +147,14 @@ async def update_task(task_id: str, task_update: schemas.TaskUpdate, current_use
     await db_task.save()
     return await assemble_task_response(db_task)
 
-async def delete_task(task_id: str, current_user: models.User) -> None:
+async def delete_task(task_id: str, current_user: models.User):
     """Deletes a task and all its related TaskSubmission documents."""
     db_task = await models.Task.get(task_id)
     if not db_task:
         raise HTTPException(status_code=404, detail="Task not found")
-    if not can_edit_task(current_user, db_task):
-        raise HTTPException(status_code=403, detail="Not authorized to delete this task")
+    
+    if not can_delete_task(current_user, db_task):
+        raise HTTPException(status_code=403, detail="Not authorized to update this task")
 
     # Cascade-delete all submissions tied to this task
     submissions = await models.TaskSubmission.find(
@@ -129,6 +164,7 @@ async def delete_task(task_id: str, current_user: models.User) -> None:
         await submission.delete()
 
     await db_task.delete()
+    return {"message": "Task deleted successfully"}
 
 async def add_voice_note(task_id: str, file_url: str) -> schemas.TaskResponse:
     """Updates task voice note path."""

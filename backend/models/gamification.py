@@ -12,20 +12,3 @@ class ActivityLog(Document):
 
     class Settings:
         name = "activity_logs"
-
-class Achievement(Document):
-    title: Annotated[str, Indexed(unique=True)]
-    description: str
-    badge_icon: str
-    xp_reward: int = 0
-
-    class Settings:
-        name = "achievements"
-
-class UserAchievement(Document):
-    user_id: Annotated[str, Indexed()]  # stores User's string ID
-    achievement_id: Annotated[str, Indexed()]  # stores Achievement's string ID
-    earned_at: datetime = Field(default_factory=get_utc_now)
-
-    class Settings:
-        name = "user_achievements"

@@ -20,6 +20,7 @@ import { Pencil, Trash2 } from 'lucide-react';
 import api from '../services/api';
 import { getErrorMessage } from '../utils/apiError';
 import useAuthStore from '../store/useAuthStore';
+import { formatDate } from '../utils/dateFormatters';
 
 /** Mirror of backend can_edit_task — HOD in same dept only; President/VP are read-only. */
 function canEditTask(user, task) {
@@ -61,14 +62,39 @@ const SortableTaskItem = ({ id, task, currentUser, onDelete, onEdit }) => {
         >
           <h4 className="font-semibold text-white">{task.title}</h4>
           <p className="text-sm text-gray-400 mt-1 line-clamp-2">{task.description}</p>
+          {(task.assigned_to_username || task.assigned_by_username) && (
+            <div className="mt-2 text-xs text-gray-400 space-y-0.5">
+              {task.assigned_to_username && (
+                <div>
+                  Assigned to: <span className="text-gray-300 font-medium">{task.assigned_to_username}</span>
+                </div>
+              )}
+              {task.assigned_by_username && (
+                <div>
+                  Assigned by: <span className="text-gray-300 font-medium">{task.assigned_by_username}</span>
+                </div>
+              )}
+            </div>
+          )}
           <div className="flex justify-between items-center mt-3 text-xs">
-            <span className={`px-2 py-1 rounded-full ${
-              task.priority === 'high' ? 'bg-red-500/20 text-red-400' :
-              task.priority === 'medium' ? 'bg-yellow-500/20 text-yellow-400' :
-              'bg-green-500/20 text-green-400'
-            }`}>
-              {task.priority}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className={`px-2 py-1 rounded-full ${
+                task.priority === 'high' ? 'bg-red-500/20 text-red-400' :
+                task.priority === 'medium' ? 'bg-yellow-500/20 text-yellow-400' :
+                'bg-green-500/20 text-green-400'
+              }`}>
+                {task.priority}
+              </span>
+              {task.deadline ? (
+                <span className="text-gray-400">
+                  Due: {formatDate(task.deadline)}
+                </span>
+              ) : (
+                <span className="bg-yellow-500/20 text-yellow-400 px-2 py-1 rounded-full text-xs">
+                  No due date
+                </span>
+              )}
+            </div>
           </div>
         </Link>
       </div>
@@ -140,7 +166,7 @@ export default function TaskBoard() {
   const fetchTasks = async () => {
     setIsLoading(true);
     try {
-      const res = await api.get('/tasks');
+      const res = await api.get('/tasks/', { params: { assigned_to_me: true } });
       const allTasks = res.data;
       setTasks({
         pending: allTasks.filter(t => t.status === 'pending'),

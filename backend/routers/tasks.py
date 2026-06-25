@@ -17,18 +17,42 @@ async def get_tasks(
     skip: int = 0,
     limit: int = 20,
     department_id: Optional[str] = None,
+    assigned_to_me: bool = False,
+    assigned_by_me: bool = False,
     current_user: models.User = Depends(auth.get_current_active_user)
 ):
     return await task_service.get_tasks(
         current_user=current_user,
         skip=skip,
         limit=limit,
-        department_id=department_id
+        department_id=department_id,
+        assigned_to_me=assigned_to_me,
+        assigned_by_me=assigned_by_me
     )
 
 @router.get("/submissions/pending", response_model=List[schemas.AdminTaskSubmissionResponse])
 async def get_pending_submissions(current_user: models.User = Depends(auth.get_current_admin_user)):
     return await submission_service.get_pending_submissions(current_user)
+
+@router.get("/submissions/mine", response_model=List[schemas.AdminTaskSubmissionResponse])
+async def get_my_submissions(current_user: models.User = Depends(auth.get_current_active_user)):
+    submissions = (
+        await models.TaskSubmission.find(models.TaskSubmission.user_id == str(current_user.id))
+        .sort(-models.TaskSubmission.submitted_at)
+        .to_list(5)
+    )
+    results = []
+    for submission in submissions:
+        task = await models.Task.get(submission.task_id)
+        results.append(
+            schemas.AdminTaskSubmissionResponse(
+                **submission.model_dump(exclude={"id"}),
+                id=str(submission.id),
+                task_title=task.title if task else "Unknown Task",
+                submitter_username=current_user.username,
+            )
+        )
+    return results
 
 @router.get("/submissions/{submission_id}", response_model=schemas.AdminTaskSubmissionResponse)
 async def get_submission(submission_id: str, current_user: models.User = Depends(auth.get_current_admin_user)):
@@ -54,6 +78,31 @@ async def reject_submission(
 async def create_task(task: schemas.TaskCreate, current_user: models.User = Depends(auth.get_current_admin_user)):
     return await task_service.create_task(task, str(current_user.id))
 
+@router.get("/{task_id}/submissions", response_model=List[schemas.TaskSubmissionResponse])
+async def get_task_submissions(
+    task_id: str,
+    current_user: models.User = Depends(auth.get_current_active_user),
+):
+    submissions = (
+        await models.TaskSubmission.find(models.TaskSubmission.task_id == task_id)
+        .sort(-models.TaskSubmission.submitted_at)
+        .to_list()
+    )
+
+    is_privileged = (
+        current_user.is_president
+        or current_user.is_vice_president
+        or current_user.role == "hod"
+    )
+
+    if not is_privileged:
+        submissions = [s for s in submissions if s.user_id == str(current_user.id)]
+
+    return [
+        schemas.TaskSubmissionResponse(**s.model_dump(exclude={"id"}), id=str(s.id))
+        for s in submissions
+    ]
+
 @router.get("/{task_id}", response_model=schemas.TaskResponse)
 async def get_task(task_id: str, current_user: models.User = Depends(auth.get_current_active_user)):
     task = await task_service.get_task_by_id(task_id, current_user)
@@ -63,9 +112,10 @@ async def get_task(task_id: str, current_user: models.User = Depends(auth.get_cu
 async def update_task(task_id: str, task_update: schemas.TaskUpdate, current_user: models.User = Depends(auth.get_current_active_user)):
     return await task_service.update_task(task_id, task_update, current_user)
 
-@router.delete("/{task_id}", status_code=204)
-async def delete_task(task_id: str, current_user: models.User = Depends(auth.get_current_active_user)):
-    await task_service.delete_task(task_id, current_user)
+@router.delete("/{task_id}")
+async def delete_task(task_id: str, current_user = Depends(auth.get_current_active_user)):
+    return await task_service.delete_task(task_id, current_user)
+
 
 @router.post("/{task_id}/voice", response_model=schemas.TaskResponse)
 async def upload_voice_note(task_id: str, file: UploadFile = File(...), current_user: models.User = Depends(auth.get_current_admin_user)):

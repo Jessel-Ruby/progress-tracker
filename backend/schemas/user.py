@@ -21,7 +21,6 @@ class UserResponse(UserBase):
     xp: int
     level: int
     streak: int
-    contribution_score: int
     profile_image: Optional[str]
     created_at: datetime
 

@@ -18,13 +18,11 @@ export default function Dashboard() {
     dueThisWeekTasks,
     dueTodayCount,
     recentTasks,
+    recentSubmissions,
     leaderboardTopPercent,
     xpProgress,
     loading,
     error,
-    achievements,
-    achievementsLoading,
-    achievementsError,
     departments,
     departmentsLoading,
   } = useDashboardData(activityId);
@@ -45,7 +43,7 @@ export default function Dashboard() {
         className="mb-8"
       >
         <h1 className="text-3xl font-bold mb-2">
-          Welcome back, <span className="neon-text">{user?.username}</span>!
+          Welcome back, <span className="text-[#9AD872]">{user?.username}</span>!
         </h1>
         <p className="text-gray-400">Here's an overview of your progress today.</p>
       </motion.div>
@@ -57,17 +55,17 @@ export default function Dashboard() {
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <div className="glass-panel p-6 border-t-2 border-neonBlue">
+        <div className="glass-panel p-6 border-t-2 border-neonGreen">
           <div className="flex justify-between items-start mb-4">
             <div>
               <p className="text-sm text-gray-400">Total XP</p>
               <h3 className="text-2xl font-bold text-white">{user?.xp ?? 0}</h3>
             </div>
-            <Zap className="text-neonBlue" />
+            <Zap className="text-neonGreen" />
           </div>
           <div className="w-full bg-white/10 rounded-full h-1.5">
             <div
-              className="bg-neonBlue h-1.5 rounded-full transition-all"
+              className="bg-neonGreen h-1.5 rounded-full transition-all"
               style={{ width: `${xpProgress.percent}%` }}
             />
           </div>
@@ -106,13 +104,13 @@ export default function Dashboard() {
           <p className="text-xs text-gray-500">You're on fire! Keep it up.</p>
         </div>
 
-        <div className="glass-panel p-6 border-t-2 border-yellow-500">
+        <div className="glass-panel p-6 border-t-2 border-neonGreen">
           <div className="flex justify-between items-start mb-4">
             <div>
               <p className="text-sm text-gray-400">Pending Tasks</p>
               <h3 className="text-2xl font-bold text-white">{pendingCount}</h3>
             </div>
-            <Clock className="text-yellow-500" />
+            <Clock className="text-neonGreen" />
           </div>
           <p className="text-xs text-gray-500">
             {dueTodayCount === 0
@@ -127,11 +125,11 @@ export default function Dashboard() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.15 }}
-        className="glass-panel p-6 mb-8 border-t-2 border-orange-400"
+        className="glass-panel p-6 mb-8 border-t-2 border-neonGreen"
       >
         <div className="flex justify-between items-center mb-5 border-b border-white/10 pb-4">
           <h2 className="text-xl font-bold text-white">Due This Week</h2>
-          <Link to="/tasks" className="text-sm text-orange-400 hover:underline">
+          <Link to="/tasks" className="text-sm text-white hover:underline">
             View All
           </Link>
         </div>
@@ -156,7 +154,7 @@ export default function Dashboard() {
 
             {/* Urgent task list */}
             <div className="flex-1 w-full">
-              <p className="text-xs text-orange-400 font-semibold uppercase tracking-wider mb-3">
+              <p className="text-xs text-green-400 font-semibold uppercase tracking-wider mb-3">
                 ⚡ Tasks due within 7 days
               </p>
               <ul className="space-y-2">
@@ -187,28 +185,12 @@ export default function Dashboard() {
       </motion.div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 glass-panel p-6">
+        <div className="lg:col-span-2 glass-panel p-6 border-neonGreen">
           <div className="flex flex-wrap justify-between items-center mb-6 border-b border-white/10 pb-4 gap-3">
             <h2 className="text-xl font-bold text-white">Recent Tasks</h2>
-            <div className="flex items-center gap-3">
-              <select
-                id="department-filter"
-                value={activityId}
-                onChange={(e) => setActivityId(e.target.value)}
-                disabled={departmentsLoading}
-                className="text-sm rounded-lg px-3 py-1.5 bg-white/10 border border-white/20 text-gray-200 focus:outline-none focus:border-neonBlue focus:ring-1 focus:ring-neonBlue transition-colors cursor-pointer disabled:opacity-50"
-              >
-                <option value="">All Departments</option>
-                {departments.map((act) => (
-                  <option key={act.id} value={act.id}>
-                    {act.name}
-                  </option>
-                ))}
-              </select>
-              <Link to="/tasks" className="text-sm text-neonBlue hover:underline whitespace-nowrap">
-                View All
-              </Link>
-            </div>
+            <Link to="/tasks" className="text-sm text-white hover:underline whitespace-nowrap">
+              View All
+            </Link>
           </div>
           <div className="space-y-4">
             {recentTasks.length === 0 ? (
@@ -235,35 +217,58 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="glass-panel p-6">
-          <h2 className="text-xl font-bold text-white mb-6 border-b border-white/10 pb-4">
-            Latest Achievements
-          </h2>
-          {achievementsLoading ? (
-            <p className="text-sm text-gray-500 text-center py-8">Loading achievements...</p>
-          ) : achievementsError ? (
-            <p className="text-sm text-red-400 text-center py-8">{achievementsError}</p>
-          ) : achievements.length === 0 ? (
-            <p className="text-sm text-gray-500 text-center py-8">No achievements yet.</p>
-          ) : (
-            <ul className="space-y-4">
-              {achievements.slice(0, 3).map((ach) => (
-                <li key={ach.id} className="flex items-center gap-4 bg-white/5 rounded-xl p-4 border border-white/10">
-                  <span className="text-2xl">
-                    {ach.badge_icon}
-                  </span>
-                  <div className="flex-1">
-                    <div className="font-semibold text-white">{ach.title}</div>
-                    <div className="text-xs text-gray-400">{ach.description}</div>
-                    <div className="text-xs text-neonBlue mt-1">+{ach.xp_reward} XP</div>
+        <div className="lg:col-span-1 glass-panel p-6 border-neonGreen">
+          <div className="flex justify-between items-center mb-6 border-b border-white/10 pb-4">
+            <h2 className="text-xl font-bold text-white-400">Recent Submissions</h2>
+          </div>
+          <div className="space-y-4">
+            {(() => {
+              const fiveDaysAgo = new Date();
+              fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
+              const recent = recentSubmissions.filter(
+                (sub) => sub.submitted_at && new Date(sub.submitted_at) >= fiveDaysAgo
+              );
+              const SUBMISSION_BADGE = {
+                pending: 'bg-yellow-500/20 text-yellow-400',
+                approved: 'bg-green-500/20 text-green-400',
+                rejected: 'bg-red-500/20 text-red-400',
+                revision_requested: 'bg-orange-500/20 text-orange-400',
+              };
+              if (recent.length === 0) {
+                return (
+                  <p className="text-sm text-gray-500 text-center py-8">
+                    No submissions in the last 5 days.
+                  </p>
+                );
+              }
+              return recent.map((sub) => (
+                <div
+                  key={sub.id}
+                  className="p-4 bg-white/5 rounded-xl border border-white/10 gap-2 flex flex-col"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <span className="text-sm font-semibold text-white truncate">
+                      {sub.task_title}
+                    </span>
+                    <span
+                      className={`shrink-0 px-3 py-1 rounded-full text-xs font-medium capitalize ${
+                        SUBMISSION_BADGE[sub.status] ?? 'bg-gray-500/20 text-gray-300'
+                      }`}
+                    >
+                      {sub.status.replace(/_/g, ' ')}
+                    </span>
                   </div>
-                  <span className="text-xs text-gray-500 whitespace-nowrap">
-                    {ach.earned_at ? new Date(ach.earned_at).toLocaleDateString() : ''}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
+                  <p className="text-xs text-gray-500">
+                    {new Date(sub.submitted_at).toLocaleDateString(undefined, {
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric',
+                    })}
+                  </p>
+                </div>
+              ));
+            })()}
+          </div>
         </div>
       </div>
     </div>

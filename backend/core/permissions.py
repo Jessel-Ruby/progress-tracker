@@ -32,6 +32,10 @@ def can_edit_task(user: User, task: Task) -> bool:
         return True
     return False
 
+def can_delete_task(user: User, task: Task) -> bool:
+    return task.assigned_by == str(user.id)
+
+
 def can_view_department(user: User, department_id: str) -> bool:
     """
     HODs and members can view their own department.

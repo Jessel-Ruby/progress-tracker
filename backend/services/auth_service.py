@@ -5,6 +5,8 @@ from fastapi.security import OAuth2PasswordRequestForm
 import models
 import schemas
 from core import auth
+from services.gamification_service import award_xp
+from models.user import get_utc_now
 
 async def signup_user(user_in: schemas.UserCreate) -> models.User:
     """Signs up a new user, performing password strength, uniqueness, and department checks."""
@@ -69,21 +71,19 @@ async def login_user(form_data: OAuth2PasswordRequestForm) -> Dict[str, str]:
 
     # Streak tracking only for active users
     if user.status == "active":
-        today = date.today()
+        today = get_utc_now().date()
         already_logged_today = user.last_login_date == today
         if not already_logged_today:
             yesterday = today - timedelta(days=1)
             if user.last_login_date == yesterday:
                 user.streak += 1
+                xp_award = 10
             else:
                 user.streak = 1
+                xp_award = 5
             user.last_login_date = today
             await user.save()
-            await models.ActivityLog(
-                user_id=str(user.id),
-                activity_type="daily_login",
-                points_earned=0
-            ).insert()
+            await award_xp(str(user.id), xp_award, "daily_login")
 
     return {"access_token": access_token, "token_type": "bearer"}
 

@@ -1,32 +1,7 @@
 from datetime import datetime, timedelta
 from typing import List, Dict, Any
-from beanie.operators import GTE
+from beanie.operators import GTE, In
 import models
-
-async def get_user_achievements(user_id: str) -> List[Dict[str, Any]]:
-    """Retrieves achievements earned by a user, including earning timestamps."""
-    user_achievements = await models.UserAchievement.find(
-        models.UserAchievement.user_id == user_id
-    ).to_list()
-    if not user_achievements:
-        return []
-    achievement_ids = [ua.achievement_id for ua in user_achievements]
-    achievements = await models.Achievement.find(
-        models.Achievement.id.in_(achievement_ids)
-    ).to_list()
-    # Map achievement_id -> earned_at
-    earned_map = {ua.achievement_id: ua.earned_at for ua in user_achievements}
-    return [
-        {
-            "id": str(a.id),
-            "title": a.title,
-            "description": a.description,
-            "badge_icon": a.badge_icon,
-            "xp_reward": a.xp_reward,
-            "earned_at": earned_map.get(str(a.id)),
-        }
-        for a in achievements
-    ]
 
 async def get_leaderboard(limit: int = 10) -> List[Dict[str, Any]]:
     """Retrieves leaderboard rankings based on XP."""
@@ -44,7 +19,7 @@ async def get_tasks_completed_by_day(user_id: str, days: int = 7) -> List[Dict[s
     # Query ActivityLog for task completion events
     logs = await models.ActivityLog.find(
         models.ActivityLog.user_id == user_id,
-        models.ActivityLog.activity_type.in_(["submission_approved", "task_completed"]),
+        In(models.ActivityLog.activity_type, ["submission_approved", "task_completed"]),
         GTE(models.ActivityLog.created_at, start_date)
     ).to_list()
     

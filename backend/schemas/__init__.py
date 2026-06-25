@@ -10,5 +10,5 @@ from schemas.task import (
     TaskUpdate,
     TaskResponse,
 )
-from schemas.department import DepartmentCreate, DepartmentResponse, DepartmentMemberAdd
-
+from schemas.department import DepartmentCreate, DepartmentResponse, DepartmentMemberAdd, DepartmentProgressResponse
+from schemas.analytics import ActivityLogEntry, ActivityLogResponse

@@ -35,9 +35,7 @@ export default function Profile() {
     try {
       const formData = new FormData();
       formData.append('file', selectedFile);
-      const res = await api.post('/auth/me/profile-image', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      const res = await api.post('/auth/me/profile-image', formData);
       // Update global user in store so sidebar avatar refreshes immediately
       setUser(res.data);
       setSelectedFile(null);
@@ -60,7 +58,7 @@ export default function Profile() {
   ];
 
   return (
-    <div className="p-8 max-w-3xl mx-auto">
+    <div className="p-8 max-w-3xl mx-auto ">
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -75,9 +73,9 @@ export default function Profile() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.05 }}
-        className="glass-panel p-8 mb-6"
+        className="glass-panel p-8 mb-6 border-neonGreen"
       >
-        <div className="flex flex-col sm:flex-row items-center gap-8">
+        <div className="flex flex-col sm:flex-row items-center gap-8 ">
           {/* Avatar preview */}
           <div className="relative shrink-0 group">
             <div

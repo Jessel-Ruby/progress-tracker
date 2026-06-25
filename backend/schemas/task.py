@@ -51,6 +51,8 @@ class TaskResponse(TaskBase):
     id: str
     status: str
     assigned_by: str
+    assigned_by_username: Optional[str] = None
+    assigned_to_username: Optional[str] = None
     department_id: Optional[str] = None
     voice_note_path: Optional[str]
     attachments: List[str] = []

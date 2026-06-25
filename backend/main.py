@@ -27,8 +27,6 @@ async def startup_event():
             models.Task,
             models.TaskSubmission,
             models.ActivityLog,
-            models.Achievement,
-            models.UserAchievement,
             models.Notification,
             models.Department
         ]

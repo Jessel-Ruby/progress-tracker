@@ -29,9 +29,9 @@ export default function Leaderboard() {
 
   const getRankIcon = (index) => {
     switch (index) {
-      case 0: return <Trophy className="text-yellow-400 w-6 h-6" />;
-      case 1: return <Medal className="text-gray-300 w-6 h-6" />;
-      case 2: return <Medal className="text-amber-600 w-6 h-6" />;
+      case 0: return <Trophy className="text-neonGreen w-6 h-6" />;
+      case 1: return <Medal className="text-neonGreen w-6 h-6" />;
+      case 2: return <Medal className="text-neonGreen w-6 h-6" />;
       default: return <span className="text-gray-500 font-bold w-6 h-6 flex items-center justify-center">{index + 1}</span>;
     }
   };
@@ -47,13 +47,13 @@ export default function Leaderboard() {
         className="mb-8 text-center"
       >
         <h1 className="text-4xl font-bold mb-4">
-          <span className="neon-text">Global Leaderboard</span>
+          <span className="text-white">Global Leaderboard</span>
         </h1>
         <p className="text-gray-400">Compete with your peers and rise through the ranks.</p>
       </motion.div>
 
       <div className="glass-panel overflow-hidden">
-        <table className="w-full text-left border-collapse">
+        <table className="w-full text-left border-neonGreen">
           <thead>
             <tr className="bg-white/5 border-b border-white/10">
               <th className="p-4 text-gray-400 font-semibold w-16 text-center">Rank</th>
@@ -81,11 +81,11 @@ export default function Leaderboard() {
                   <td className="p-4">
                     <div className="flex items-center gap-3">
                       <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold ${
-                        isCurrentUser ? 'bg-neonBlue text-black' : 'bg-gray-800 text-white'
+                        isCurrentUser ? 'bg-gray-800 text-white' : 'bg-gray-800 text-white'
                       }`}>
                         {user.username.charAt(0).toUpperCase()}
                       </div>
-                      <span className={`font-bold ${isCurrentUser ? 'text-neonBlue' : 'text-white'}`}>
+                      <span className={`font-bold ${isCurrentUser ? 'text-white' : 'text-white'}`}>
                         {user.username} {isCurrentUser && '(You)'}
                       </span>
                     </div>

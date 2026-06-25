@@ -11,6 +11,10 @@ import Admin from './pages/Admin';
 import SubmissionReview from './pages/SubmissionReview';
 import Profile from './pages/Profile';
 import AdminRoute from './components/AdminRoute';
+import ExecutiveRoute from './components/ExecutiveRoute';
+import DepartmentsOverview from './pages/DepartmentsOverview';
+import HodRoute from './components/HodRoute';
+import DepartmentProgress from './pages/DepartmentProgress';
 import useAuthStore from './store/useAuthStore';
 
 // Protected Route Wrapper
@@ -110,6 +114,8 @@ function App() {
         <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
         <Route path="/admin" element={<AdminRoute><Admin /></AdminRoute>} />
         <Route path="/admin/submissions/:id" element={<AdminRoute><SubmissionReview /></AdminRoute>} />
+        <Route path="/departments-overview" element={<ExecutiveRoute><DepartmentsOverview /></ExecutiveRoute>} />
+        <Route path="/department-progress" element={<HodRoute><DepartmentProgress /></HodRoute>} />
         
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>

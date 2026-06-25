@@ -40,8 +40,6 @@ async def award_xp(user_id: str, amount: int, activity_type: str):
     user.xp += amount
     user.level = calculate_level(user.xp)
     
-    user.contribution_score += (amount // 10)
-    
     # Log activity
     log = models.ActivityLog(
         user_id=str(user.id),

@@ -1,7 +1,7 @@
 
 import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, CheckSquare, BarChart2, Trophy, Shield, LogOut, Menu, UserCircle } from 'lucide-react';
+import { LayoutDashboard, CheckSquare, BarChart2, Trophy, Shield, LogOut, Menu, UserCircle, Building2 } from 'lucide-react';
 import useAuthStore from '../store/useAuthStore';
 
 export default function Sidebar() {
@@ -19,6 +19,16 @@ export default function Sidebar() {
   const isAdminOrHOD = user && (user.role === 'hod' || user.is_president || user.is_vice_president);
   if (isAdminOrHOD) {
     links.push({ to: '/admin', icon: Shield, label: 'Admin' });
+  }
+
+  const isExecutive = user && (user.is_president || user.is_vice_president);
+  if (isExecutive) {
+    links.push({ to: '/departments-overview', icon: Building2, label: 'Departments' });
+  }
+
+  const isHod = user && user.role === 'hod';
+  if (isHod) {
+    links.push({ to: '/department-progress', icon: Building2, label: 'My Department' });
   }
 
   return (
@@ -51,9 +61,10 @@ export default function Sidebar() {
         `}
       >
         <div className="p-6 border-b border-white/10">
-          <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-neonBlue to-neonPurple">
-            Progress Tracker
+          <h2 className="text-2xl font-bold text-[#9AD872]">
+            ProTrack
           </h2>
+          <p className="text-xs text-gray-500 mt-0.5">Progress Made Visible.</p>
         </div>
 
         <div className="flex-1 py-6 px-4 space-y-2">

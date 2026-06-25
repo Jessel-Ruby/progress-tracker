@@ -83,18 +83,16 @@ export default function useDashboardData(activityId = '') {
   const [leaderboardTopPercent, setLeaderboardTopPercent] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [achievements, setAchievements] = useState([]);
-  const [achievementsLoading, setAchievementsLoading] = useState(true);
-  const [achievementsError, setAchievementsError] = useState(null);
   const [departments, setDepartments] = useState([]);
   const [departmentsLoading, setDepartmentsLoading] = useState(true);
+  const [recentSubmissions, setRecentSubmissions] = useState([]);
 
   // Fetch departments once on mount
   useEffect(() => {
     let cancelled = false;
     setDepartmentsLoading(true);
     api
-      .get('/departments')
+      .get('/departments/')
       .then((res) => {
         if (!cancelled) setDepartments(res.data);
       })
@@ -109,7 +107,7 @@ export default function useDashboardData(activityId = '') {
     };
   }, []);
 
-  // Re-fetch tasks + leaderboard whenever activityId changes
+  // Re-fetch tasks + leaderboard + submissions whenever activityId changes
   useEffect(() => {
     let cancelled = false;
 
@@ -118,15 +116,17 @@ export default function useDashboardData(activityId = '') {
       setError(null);
 
       try {
-        const taskParams = activityId ? { activity_id: activityId } : {};
-        const [tasksRes, leaderboardRes] = await Promise.all([
-          api.get('/tasks', { params: taskParams }),
+        const taskParams = activityId ? { activity_id: activityId, assigned_to_me: true } : { assigned_to_me: true };
+        const [tasksRes, leaderboardRes, submissionsRes] = await Promise.all([
+          api.get('/tasks/', { params: taskParams }),
           api.get('/analytics/leaderboard', { params: { limit: 50 } }),
+          api.get('/tasks/submissions/mine'),
         ]);
 
         if (cancelled) return;
 
         setTasks(tasksRes.data);
+        setRecentSubmissions(submissionsRes.data);
 
         const username = useAuthStore.getState().user?.username;
         const leaders = leaderboardRes.data;
@@ -150,24 +150,7 @@ export default function useDashboardData(activityId = '') {
       }
     }
 
-    async function loadAchievements() {
-      setAchievementsLoading(true);
-      setAchievementsError(null);
-      try {
-        const res = await api.get('/analytics/achievements');
-        if (!cancelled) setAchievements(res.data);
-      } catch (err) {
-        if (!cancelled) {
-          const msg = getErrorMessage(err, 'Failed to load achievements');
-          setAchievementsError(msg);
-        }
-      } finally {
-        if (!cancelled) setAchievementsLoading(false);
-      }
-    }
-
     load();
-    loadAchievements();
     return () => {
       cancelled = true;
     };
@@ -180,7 +163,8 @@ export default function useDashboardData(activityId = '') {
     return new Date(task.deadline).toDateString() === new Date().toDateString();
   }).length;
 
-  const recentTasks = [...tasks]
+  const recentTasks = tasks
+    .filter((task) => task.status === 'pending')
     .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
     .slice(0, 3);
 
@@ -205,10 +189,8 @@ export default function useDashboardData(activityId = '') {
     xpProgress: getXpProgress(user?.xp ?? 0, user?.level ?? 1),
     loading,
     error,
-    achievements,
-    achievementsLoading,
-    achievementsError,
     departments,
     departmentsLoading,
+    recentSubmissions,
   };
 }

@@ -2,13 +2,14 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
-import { UploadCloud, CheckCircle, FileAudio, Paperclip } from 'lucide-react';
+import { UploadCloud, CheckCircle, FileAudio, Paperclip, AlertCircle } from 'lucide-react';
 import api from '../services/api';
 import { getErrorMessage } from '../utils/apiError';
 
 export default function TaskDetail() {
   const { id } = useParams();
   const [task, setTask] = useState(null);
+  const [latestSubmission, setLatestSubmission] = useState(null);
   const [file, setFile] = useState(null);
   const [comment, setComment] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -20,6 +21,18 @@ export default function TaskDetail() {
       try {
         const res = await api.get(`/tasks/${id}`);
         setTask(res.data);
+        // Fetch submissions to check for reviewer feedback
+        try {
+          const subRes = await api.get(`/tasks/${id}/submissions`);
+          if (Array.isArray(subRes.data) && subRes.data.length > 0) {
+            const sorted = [...subRes.data].sort(
+              (a, b) => new Date(b.submitted_at) - new Date(a.submitted_at)
+            );
+            setLatestSubmission(sorted[0]);
+          }
+        } catch {
+          // Submissions endpoint optional — silently ignore errors
+        }
       } catch (err) {
         toast.error(getErrorMessage(err, 'Failed to load task'));
       } finally {
@@ -68,13 +81,29 @@ export default function TaskDetail() {
         <div className="flex justify-between items-start mb-6">
           <div>
             <h1 className="text-3xl font-bold text-white mb-2">{task.title}</h1>
-            <span className={`px-3 py-1 text-sm rounded-full ${
-              task.status === 'completed' ? 'bg-green-500/20 text-green-400' :
-              task.status === 'in_progress' ? 'bg-blue-500/20 text-blue-400' :
-              'bg-yellow-500/20 text-yellow-400'
-            }`}>
-              {task.status.replace('_', ' ').toUpperCase()}
-            </span>
+            <div className="flex flex-wrap items-center gap-3">
+              <span className={`px-3 py-1 text-sm rounded-full ${
+                task.status === 'completed' ? 'bg-green-500/20 text-green-400' :
+                task.status === 'in_progress' ? 'bg-blue-500/20 text-blue-400' :
+                'bg-yellow-500/20 text-yellow-400'
+              }`}>
+                {task.status.replace('_', ' ').toUpperCase()}
+              </span>
+            </div>
+            {(task.assigned_to_username || task.assigned_by_username) && (
+              <div className="mt-3 text-sm text-gray-400 space-y-1">
+                {task.assigned_to_username && (
+                  <div>
+                    Assigned to: <span className="text-white font-medium">{task.assigned_to_username}</span>
+                  </div>
+                )}
+                {task.assigned_by_username && (
+                  <div>
+                    Assigned by: <span className="text-white font-medium">{task.assigned_by_username}</span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
           <span className="text-gray-400 text-sm">
             Due: {task.deadline ? new Date(task.deadline).toLocaleDateString() : 'No deadline'}
@@ -134,6 +163,21 @@ export default function TaskDetail() {
         <hr className="border-white/10 my-8" />
 
         <h3 className="text-xl font-bold mb-4">Submit Work</h3>
+
+        {latestSubmission &&
+          (latestSubmission.status === 'revision_requested' || latestSubmission.status === 'rejected') &&
+          latestSubmission.feedback && (
+            <div className="mb-6 bg-amber-500/10 border border-amber-500/30 text-amber-300 p-4 rounded-xl flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 mt-0.5 shrink-0 text-amber-400" />
+              <div>
+                <p className="font-semibold text-amber-400 mb-1">
+                  {latestSubmission.status === 'revision_requested' ? 'Revision Requested' : 'Rejected'}
+                </p>
+                <p className="text-sm leading-relaxed">{latestSubmission.feedback}</p>
+              </div>
+            </div>
+          )}
+
         {task.status === 'completed' || task.status === 'in_review' ? (
           <div className="bg-green-500/10 border border-green-500/20 text-green-400 p-4 rounded-xl flex items-center gap-3">
             <CheckCircle />

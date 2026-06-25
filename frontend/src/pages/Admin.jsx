@@ -18,6 +18,14 @@ export default function Admin() {
   const [reviewingId, setReviewingId] = useState(null);
   const [isCreatingTask, setIsCreatingTask] = useState(false);
   const [usersLoading, setUsersLoading] = useState(true);
+  const [, setTick] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTick(t => t + 1);
+    }, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Edit mode — populated when navigated from TaskBoard with state.editTask
   const [editTaskId, setEditTaskId] = useState(null);
@@ -25,7 +33,7 @@ export default function Admin() {
   // New Task Form State
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [assignedTo, setAssignedTo] = useState('');
+  const [selectedUserIds, setSelectedUserIds] = useState([]);
   const [priority, setPriority] = useState('medium');
   const [deadline, setDeadline] = useState('');
   const [selectedDeptId, setSelectedDeptId] = useState(''); // President/VP dept selector
@@ -41,6 +49,8 @@ export default function Admin() {
   const [audioBlob, setAudioBlob] = useState(null);
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
+  const dropdownRef = useRef(null);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   // Document Attachment State
   const [attachmentFiles, setAttachmentFiles] = useState([]);
@@ -48,6 +58,10 @@ export default function Admin() {
   // Pending user approvals state
   const [pendingUsers, setPendingUsers] = useState([]);
   const [pendingUsersLoading, setPendingUsersLoading] = useState(false);
+
+  // Tasks assigned by me state
+  const [assignedTasks, setAssignedTasks] = useState([]);
+  const [assignedTasksLoading, setAssignedTasksLoading] = useState(false);
 
   const fetchSubmissions = async () => {
     setSubmissionsLoading(true);
@@ -75,6 +89,20 @@ export default function Admin() {
     }
   };
 
+  const fetchAssignedTasks = async () => {
+    if (user?.role === 'hod' || user?.is_president || user?.is_vice_president) {
+      setAssignedTasksLoading(true);
+      try {
+        const res = await api.get('/tasks', { params: { assigned_by_me: true } });
+        setAssignedTasks(res.data);
+      } catch (err) {
+        toast.error(getErrorMessage(err, 'Failed to load assigned tasks'));
+      } finally {
+        setAssignedTasksLoading(false);
+      }
+    }
+  };
+
   useEffect(() => {
     const fetchUsers = async () => {
       setUsersLoading(true);
@@ -91,7 +119,7 @@ export default function Admin() {
       if (user?.is_president || user?.is_vice_president) {
         setDepartmentsLoading(true);
         try {
-          const res = await api.get('/departments');
+          const res = await api.get('/departments/');
           setDepartments(res.data);
           if (res.data.length > 0) setSelectedDeptId(res.data[0].id);
         } catch (err) {
@@ -106,6 +134,7 @@ export default function Admin() {
     fetchSubmissions();
     fetchPendingUsers();
     fetchDepartments();
+    fetchAssignedTasks();
   }, []);
 
   // Pre-fill form when navigated from TaskBoard with an editTask payload
@@ -115,7 +144,7 @@ export default function Admin() {
     setEditTaskId(et.id);
     setTitle(et.title || '');
     setDescription(et.description || '');
-    setAssignedTo(et.assigned_to || '');
+    setSelectedUserIds(et.assigned_to ? [et.assigned_to] : []);
     setPriority(et.priority || 'medium');
     setDeadline(et.deadline ? et.deadline.substring(0, 16) : '');
     if (et.department_id) setSelectedDeptId(et.department_id);
@@ -123,6 +152,18 @@ export default function Admin() {
     navigate(location.pathname, { replace: true, state: {} });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.state]);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   const handleApproveUser = async (userId) => {
     try {
@@ -145,12 +186,23 @@ export default function Admin() {
     }
   };
 
-  // For Assign To dropdown: President/VP filter by their selected dept; HODs see only their own dept
-  const departmentUsers = users.filter(u => {
-    if (user?.is_president || user?.is_vice_president) {
-      return selectedDeptId ? u.department_id === selectedDeptId : true;
+  const handleRemoveUser = async (userToRemove) => {
+    if (!window.confirm(`Remove ${userToRemove.username}? Their assigned tasks will be unassigned. This cannot be undone.`)) {
+      return;
     }
-    return u.department_id === user?.department_id;
+    
+    try {
+      await api.delete(`/auth/${userToRemove.id}`);
+      setUsers((prev) => prev.filter((u) => u.id !== userToRemove.id));
+      toast.success('User removed successfully');
+    } catch (err) {
+      toast.error(getErrorMessage(err, 'Failed to remove user'));
+    }
+  };
+
+  // For Assign To dropdown: Filter by selected dept if set, otherwise show all users
+  const departmentUsers = users.filter(u => {
+    return selectedDeptId ? u.department_id === selectedDeptId : true;
   });
 
   const handleApprove = async (submissionId) => {
@@ -222,7 +274,7 @@ export default function Admin() {
     setEditTaskId(null);
     setTitle('');
     setDescription('');
-    setAssignedTo('');
+    setSelectedUserIds([]);
     setAudioBlob(null);
     setAudioURL('');
     setPriority('medium');
@@ -238,53 +290,94 @@ export default function Admin() {
       let taskId;
 
       if (editTaskId) {
+        const taskBeingEdited = assignedTasks.find(t => t.id === editTaskId);
+        if (taskBeingEdited && taskBeingEdited.assigned_by !== user?.id) {
+          toast.error("Not authorized to update this task");
+          setIsCreatingTask(false);
+          return;
+        }
         // Edit mode — PUT to update existing task
         await api.put(`/tasks/${editTaskId}`, {
           title,
           description,
           priority,
-          assigned_to: assignedTo || null,
+          assigned_to: selectedUserIds[0] || null,
           deadline: deadline || null,
         });
         taskId = editTaskId;
         toast.success('Task updated successfully');
       } else {
         // Create mode — POST new task
-        const taskRes = await api.post('/tasks', {
-          title,
-          description,
-          priority,
-          assigned_to: assignedTo || null,
-          deadline: deadline || null,
-          // President/VP pass their chosen department; HODs omit it (backend uses their dept)
-          ...(user?.is_president || user?.is_vice_president ? { department_id: selectedDeptId || null } : {}),
-        });
-        taskId = taskRes.data.id;
-
-        if (audioBlob) {
-          const formData = new FormData();
-          formData.append('file', audioBlob, 'voicenote.webm');
-          await api.post(`/tasks/${taskId}/voice`, formData, {
-            headers: { 'Content-Type': 'multipart/form-data' }
+        const targetIds = selectedUserIds.length > 0 ? selectedUserIds : [null];
+        for (const userId of targetIds) {
+          const taskRes = await api.post('/tasks/', {
+            title,
+            description,
+            priority,
+            assigned_to: userId,
+            deadline: deadline || null,
+            // President/VP pass their chosen department; HODs omit it (backend uses their dept)
+            ...(user?.is_president || user?.is_vice_president ? { department_id: selectedDeptId || null } : {}),
           });
+          const taskId = taskRes.data.id;
+
+          if (audioBlob) {
+            const formData = new FormData();
+            formData.append('file', audioBlob, 'voicenote.webm');
+            await api.post(`/tasks/${taskId}/voice`, formData, {
+              headers: { 'Content-Type': 'multipart/form-data' }
+            });
+          }
+
+          for (const file of attachmentFiles) {
+            const formData = new FormData();
+            formData.append('file', file);
+            await api.post(`/tasks/${taskId}/attachments`, formData, {
+              headers: { 'Content-Type': 'multipart/form-data' }
+            });
+          }
         }
 
-        for (const file of attachmentFiles) {
-          const formData = new FormData();
-          formData.append('file', file);
-          await api.post(`/tasks/${taskId}/attachments`, formData, {
-            headers: { 'Content-Type': 'multipart/form-data' }
-          });
-        }
-
-        toast.success('Task assigned successfully');
+        toast.success(`${targetIds.length} task${targetIds.length === 1 ? '' : 's'} created`);
       }
 
       resetForm();
+      fetchAssignedTasks();
     } catch (err) {
       toast.error(getErrorMessage(err, editTaskId ? 'Failed to update task' : 'Failed to create task'));
     } finally {
       setIsCreatingTask(false);
+    }
+  };
+
+  const handleEditClick = (task) => {
+    if (task.assigned_by !== user?.id) {
+      toast.error("Not authorized to update this task");
+      return;
+    }
+    setEditTaskId(task.id);
+    setTitle(task.title || '');
+    setDescription(task.description || '');
+    setSelectedUserIds(task.assigned_to ? [task.assigned_to] : []);
+    setPriority(task.priority || 'medium');
+    setDeadline(task.deadline ? task.deadline.substring(0, 16) : '');
+    if (task.department_id) setSelectedDeptId(task.department_id);
+  };
+
+  const handleDeleteTask = async (task) => {
+    if (task.assigned_by !== user?.id) {
+      toast.error("Not authorized to update this task");
+      return;
+    }
+    if (!window.confirm(`Delete "${task.title}"? This cannot be undone.`)) {
+      return;
+    }
+    try {
+      await api.delete(`/tasks/${task.id}`);
+      setAssignedTasks((prev) => prev.filter((t) => t.id !== task.id));
+      toast.success('Task deleted successfully');
+    } catch (err) {
+      toast.error(getErrorMessage(err, 'Failed to delete task'));
     }
   };
 
@@ -304,8 +397,8 @@ export default function Admin() {
         <p className="text-gray-400">Manage users and assign tasks.</p>
       </motion.div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div className="glass-panel p-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 ">
+        <div className="glass-panel p-6 border-neonGreen">
           <div className="flex items-center justify-between mb-6 border-b border-white/10 pb-2">
             <h2 className="text-xl font-bold text-white">
               {editTaskId ? 'Edit Task' : 'Assign New Task'}
@@ -327,7 +420,7 @@ export default function Admin() {
                 <label className="block text-sm text-gray-400 mb-1">Department</label>
                 <select
                   value={selectedDeptId}
-                  onChange={e => { setSelectedDeptId(e.target.value); setAssignedTo(''); }}
+                  onChange={e => { setSelectedDeptId(e.target.value); setSelectedUserIds([]); }}
                   disabled={departmentsLoading}
                   className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-neonBlue disabled:opacity-50"
                 >
@@ -336,9 +429,12 @@ export default function Admin() {
                   ) : departments.length === 0 ? (
                     <option value="">No departments available</option>
                   ) : (
-                    departments.map(d => (
-                      <option key={d.id} value={d.id}>{d.name}</option>
-                    ))
+                    <>
+                      <option value="">All</option>
+                      {departments.map(d => (
+                        <option key={d.id} value={d.id}>{d.name}</option>
+                      ))}
+                    </>
                   )}
                 </select>
               </div>
@@ -364,18 +460,50 @@ export default function Admin() {
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <div>
+              <div className="relative" ref={dropdownRef}>
                 <label className="block text-sm text-gray-400 mb-1">Assign To</label>
-                <select
-                  value={assignedTo}
-                  onChange={e => setAssignedTo(e.target.value)}
-                  className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-neonBlue"
+                <button
+                  type="button"
+                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                  className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-left text-white focus:outline-none focus:border-neonBlue flex justify-between items-center text-sm"
                 >
-                  <option value="">{usersLoading ? 'Loading users...' : 'Select User...'}</option>
-                  {departmentUsers.map(u => (
-                    <option key={u.id} value={u.id}>{u.username}</option>
-                  ))}
-                </select>
+                  <span>
+                    {selectedUserIds.length === 0
+                      ? 'Select Users'
+                      : `${selectedUserIds.length} user${selectedUserIds.length === 1 ? '' : 's'} selected`}
+                  </span>
+                  <span className="text-gray-400">▼</span>
+                </button>
+                {isDropdownOpen && (
+                  <div className="absolute left-0 right-0 mt-1 max-h-40 overflow-y-auto bg-[#121212] border border-white/10 rounded-lg p-3 space-y-2 z-50 shadow-2xl">
+                    {usersLoading ? (
+                      <div className="text-gray-500 text-sm">Loading users...</div>
+                    ) : departmentUsers.length === 0 ? (
+                      <div className="text-gray-500 text-sm">Select Users</div>
+                    ) : (
+                      departmentUsers.map(u => {
+                        const isChecked = selectedUserIds.includes(u.id);
+                        return (
+                          <label key={u.id} className="flex items-center gap-3 text-sm text-gray-300 hover:text-white transition-colors cursor-pointer select-none">
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={() => {
+                                if (isChecked) {
+                                  setSelectedUserIds(selectedUserIds.filter(id => id !== u.id));
+                                } else {
+                                  setSelectedUserIds([...selectedUserIds, u.id]);
+                                }
+                              }}
+                              className="rounded border-white/20 bg-black/40 text-neonBlue focus:ring-neonBlue focus:ring-opacity-25 focus:ring-1 focus:ring-offset-0 focus:outline-none cursor-pointer"
+                            />
+                            <span>{u.username}</span>
+                          </label>
+                        );
+                      })
+                    )}
+                  </div>
+                )}
               </div>
               <div>
                 <label className="block text-sm text-gray-400 mb-1">Priority</label>
@@ -461,7 +589,7 @@ export default function Admin() {
             <button
               type="submit"
               disabled={isCreatingTask}
-              className="w-full py-3 mt-4 rounded-lg bg-neonBlue text-black font-bold hover:bg-opacity-90 transition-opacity disabled:opacity-50"
+              className="w-full py-3 mt-4 rounded-lg bg-[#558467] text-black font-bold hover:bg-opacity-90 transition-opacity disabled:opacity-50"
             >
               {isCreatingTask
                 ? (editTaskId ? 'Saving...' : 'Creating...')
@@ -470,65 +598,122 @@ export default function Admin() {
           </form>
         </div>
 
-        <div className="glass-panel p-6">
-          <h2 className="text-xl font-bold mb-6 text-white border-b border-white/10 pb-2">Recent Submissions</h2>
-          <div className="space-y-4">
-            {submissionsLoading ? (
-              <p className="text-sm text-gray-500 text-center py-8">Loading submissions...</p>
-            ) : submissions.length === 0 ? (
-              <p className="text-sm text-gray-500 text-center py-8">No pending submissions.</p>
-            ) : (
-              submissions.map((submission) => (
-                <div
-                  key={submission.id}
-                  className="p-4 bg-white/5 rounded-lg border border-white/10"
-                >
-                  <div className="flex justify-between items-start mb-2">
-                    <h4 className="font-semibold text-neonBlue">{submission.task_title}</h4>
-                    <span className="text-xs bg-yellow-500/20 text-yellow-500 px-2 py-1 rounded">
-                      Pending Review
-                    </span>
+        <div className="space-y-8">
+          <div className="glass-panel p-6 border-neonGreen">
+            <h2 className="text-xl font-bold mb-6 text-white border-b border-white/10 pb-2">Recent Submissions</h2>
+            <div className="space-y-4">
+              {submissionsLoading ? (
+                <p className="text-sm text-gray-500 text-center py-8">Loading submissions...</p>
+              ) : submissions.length === 0 ? (
+                <p className="text-sm text-gray-500 text-center py-8">No pending submissions.</p>
+              ) : (
+                submissions.map((submission) => (
+                  <div
+                    key={submission.id}
+                    className="p-4 bg-white/5 rounded-lg border border-white/10"
+                  >
+                    <div className="flex justify-between items-start mb-2 ">
+                      <h4 className="font-semibold text-white">{submission.task_title}</h4>
+                      <span className="text-xs bg-yellow-500/20 text-yellow-500 px-2 py-1 rounded">
+                        Pending Review
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-400">
+                      Submitted by <strong>{submission.submitter_username}</strong>{' '}
+                      {formatSubmittedAt(submission.submitted_at)}
+                    </p>
+                    {submission.comment && (
+                      <p className="text-sm text-gray-500 mt-2">{submission.comment}</p>
+                    )}
+                    <div className="mt-3 flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/admin/submissions/${submission.id}`)}
+                        className="px-3 py-1 bg-neonBlue/20 text-neonBlue rounded text-sm hover:bg-neonBlue/40 transition-colors"
+                      >
+                        Review
+                      </button>
+                      <button
+                        type="button"
+                        disabled={reviewingId === submission.id}
+                        onClick={() => handleApprove(submission.id)}
+                        className="px-3 py-1 bg-green-500/20 text-green-400 rounded text-sm hover:bg-green-500/40 transition-colors disabled:opacity-50"
+                      >
+                        Approve
+                      </button>
+                      <button
+                        type="button"
+                        disabled={reviewingId === submission.id}
+                        onClick={() => handleReject(submission.id)}
+                        className="px-3 py-1 bg-red-500/20 text-red-400 rounded text-sm hover:bg-red-500/40 transition-colors disabled:opacity-50"
+                      >
+                        Reject
+                      </button>
+                    </div>
                   </div>
-                  <p className="text-sm text-gray-400">
-                    Submitted by <strong>{submission.submitter_username}</strong>{' '}
-                    {formatSubmittedAt(submission.submitted_at)}
-                  </p>
-                  {submission.comment && (
-                    <p className="text-sm text-gray-500 mt-2">{submission.comment}</p>
-                  )}
-                  <div className="mt-3 flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => navigate(`/admin/submissions/${submission.id}`)}
-                      className="px-3 py-1 bg-neonBlue/20 text-neonBlue rounded text-sm hover:bg-neonBlue/40 transition-colors"
-                    >
-                      Review
-                    </button>
-                    <button
-                      type="button"
-                      disabled={reviewingId === submission.id}
-                      onClick={() => handleApprove(submission.id)}
-                      className="px-3 py-1 bg-green-500/20 text-green-400 rounded text-sm hover:bg-green-500/40 transition-colors disabled:opacity-50"
-                    >
-                      Approve
-                    </button>
-                    <button
-                      type="button"
-                      disabled={reviewingId === submission.id}
-                      onClick={() => handleReject(submission.id)}
-                      className="px-3 py-1 bg-red-500/20 text-red-400 rounded text-sm hover:bg-red-500/40 transition-colors disabled:opacity-50"
-                    >
-                      Reject
-                    </button>
+                ))
+              )}
+            </div>
+          </div>
+
+          <div className="glass-panel p-6 border-neonGreen">
+            <h2 className="text-xl font-bold mb-6 text-white border-b border-white/10 pb-2">
+              Tasks I Assigned (Last 7 Days)
+            </h2>
+            <div className="space-y-4">
+              {assignedTasksLoading ? (
+                <p className="text-sm text-gray-500 text-center py-8">Loading tasks...</p>
+              ) : assignedTasks.length === 0 ? (
+                <p className="text-sm text-gray-500 text-center py-8">No tasks assigned in the last 7 days.</p>
+              ) : (
+                assignedTasks.map((task) => (
+                  <div
+                    key={task.id}
+                    className="p-4 bg-white/5 rounded-lg border border-white/10 flex justify-between items-center"
+                  >
+                    <div>
+                      <h4 className="font-semibold text-white">{task.title}</h4>
+                      <p className="text-sm text-gray-400 mt-1">
+                        Assigned to: <strong className="text-gray-300">{task.assigned_to_username || 'Unassigned'}</strong>
+                      </p>
+                    </div>
+                    <div className="flex flex-col items-end gap-2">
+                      <span className={`text-xs px-2 py-1 rounded capitalize font-medium ${
+                        task.status === 'completed' ? 'bg-green-500/20 text-green-400' :
+                        task.status === 'in_review' ? 'bg-yellow-500/20 text-yellow-400' :
+                        task.status === 'in_progress' ? 'bg-blue-500/20 text-blue-400' :
+                        'bg-gray-500/20 text-gray-400'
+                      }`}>
+                        {task.status.replace('_', ' ')}
+                      </span>
+                      {task.assigned_by === user?.id && (
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleEditClick(task)}
+                            className="px-2 py-0.5 bg-neonBlue/20 text-neonBlue rounded text-xs hover:bg-neonBlue/40 transition-colors"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteTask(task)}
+                            className="px-2 py-0.5 bg-red-500/20 text-red-400 rounded text-xs hover:bg-red-500/40 transition-colors"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))
-            )}
+                ))
+              )}
+            </div>
           </div>
         </div>
 
         {(user?.is_president || user?.is_vice_president) && (
-          <div className="glass-panel p-6 lg:col-span-2">
+          <div className="glass-panel p-6 lg:col-span-2 border-neonGreen">
             <h2 className="text-xl font-bold mb-6 text-white border-b border-white/10 pb-2">Pending Member Approvals</h2>
             <div className="space-y-4">
               {pendingUsersLoading ? (
@@ -571,6 +756,56 @@ export default function Admin() {
                             >
                               Reject
                             </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {(user?.is_president || user?.is_vice_president) && (
+          <div className="glass-panel p-6 lg:col-span-2 border-neonGreen">
+            <h2 className="text-xl font-bold mb-6 text-white border-b border-white/10 pb-2">Active Members Management</h2>
+            <div className="space-y-4">
+              {usersLoading ? (
+                <p className="text-sm text-gray-500 text-center py-8">Loading active users...</p>
+              ) : users.length === 0 ? (
+                <p className="text-sm text-gray-500 text-center py-8">No active users.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="border-b border-white/10 text-gray-400 text-sm">
+                        <th className="pb-3 font-semibold">Username</th>
+                        <th className="pb-3 font-semibold">Email</th>
+                        <th className="pb-3 font-semibold">Role</th>
+                        <th className="pb-3 font-semibold">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                      {users.map((activeUser) => (
+                        <tr key={activeUser.id} className="text-sm text-gray-300">
+                          <td className="py-3 font-semibold text-neonBlue">{activeUser.username}</td>
+                          <td className="py-3">{activeUser.email}</td>
+                          <td className="py-3">
+                            <span className="px-2 py-0.5 rounded text-xs bg-white/5 border border-white/10 text-gray-300 capitalize">
+                              {activeUser.role === 'hod' ? (activeUser.is_president ? 'President' : (activeUser.is_vice_president ? 'VP' : 'HOD')) : 'Member'}
+                            </span>
+                          </td>
+                          <td className="py-3 flex gap-2">
+                            {user.id !== activeUser.id && (
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveUser(activeUser)}
+                                className="px-3 py-1 bg-red-500/20 text-red-400 rounded text-sm hover:bg-red-500/40 transition-colors font-semibold"
+                              >
+                                Remove
+                              </button>
+                            )}
                           </td>
                         </tr>
                       ))}

@@ -23,22 +23,32 @@ async def seed():
     print("Seeding MongoDB database for Phase 2...")
 
     # 1. Create departments
-    software_dept = models.Department(
-        name="Software Engineering",
-        description="Core software development and system architecture.",
+    suspension_dept = models.Department(
+        name="Suspension & Steering",
+        description="Design and tuning of suspension geometry, steering systems, and chassis dynamics.",
     )
-    design_dept = models.Department(
-        name="Design",
-        description="UX/UI design, branding, and asset creation.",
+    rollcage_dept = models.Department(
+        name="Rollcage",
+        description="Structural design, fabrication, and safety certification of the roll-protection frame.",
     )
-    marketing_dept = models.Department(
-        name="Marketing",
-        description="Public relations, outreach, and user acquisition.",
+    mpt_dept = models.Department(
+        name="Mechanical Power Train",
+        description="Engine, gearbox, drivetrain, and mechanical power delivery systems.",
+    )
+    ept_dept = models.Department(
+        name="Electrical Power Train",
+        description="Battery management, motor controllers, and high-voltage electrical systems.",
+    )
+    brakes_dept = models.Department(
+        name="Brakes",
+        description="Brake system design, caliper selection, and pedal-box fabrication.",
     )
 
-    await software_dept.insert()
-    await design_dept.insert()
-    await marketing_dept.insert()
+    await suspension_dept.insert()
+    await rollcage_dept.insert()
+    await mpt_dept.insert()
+    await ept_dept.insert()
+    await brakes_dept.insert()
 
     # 2. Create users
     president = models.User(
@@ -46,7 +56,7 @@ async def seed():
         email="president@tracker.dev",
         password_hash=get_password_hash("President1!"),
         role="hod",
-        department_id=str(software_dept.id),
+        department_id=str(suspension_dept.id),
         is_president=True,
         status="active",
         xp=5000,
@@ -59,7 +69,7 @@ async def seed():
         email="vp@tracker.dev",
         password_hash=get_password_hash("VicePresident1!"),
         role="hod",
-        department_id=str(software_dept.id),
+        department_id=str(rollcage_dept.id),
         is_vice_president=True,
         status="active",
         xp=4200,
@@ -72,7 +82,7 @@ async def seed():
         email="alice@tracker.dev",
         password_hash=get_password_hash("password"),
         role="hod",
-        department_id=str(software_dept.id),
+        department_id=str(mpt_dept.id),
         status="active",
         xp=2500,
         level=5,
@@ -84,7 +94,7 @@ async def seed():
         email="bob@tracker.dev",
         password_hash=get_password_hash("password"),
         role="hod",
-        department_id=str(design_dept.id),
+        department_id=str(ept_dept.id),
         status="active",
         xp=2200,
         level=4,
@@ -96,7 +106,7 @@ async def seed():
         email="charlie@tracker.dev",
         password_hash=get_password_hash("password"),
         role="member",
-        department_id=str(software_dept.id),
+        department_id=str(brakes_dept.id),
         status="active",
         xp=1200,
         level=3,
@@ -108,7 +118,7 @@ async def seed():
         email="pending@tracker.dev",
         password_hash=get_password_hash("password"),
         role="member",
-        department_id=str(design_dept.id),
+        department_id=str(suspension_dept.id),
         status="pending",
         xp=0,
         level=1,
@@ -124,30 +134,27 @@ async def seed():
     await pending_user.insert()
 
     # 3. Associate departments with HODs and members
-    software_dept.owner_id = str(alice.id)
-    software_dept.member_ids = [str(president.id), str(vp.id), str(alice.id), str(charlie.id)]
-    await software_dept.save()
+    suspension_dept.owner_id = str(president.id)
+    suspension_dept.member_ids = [str(president.id), str(pending_user.id)]
+    await suspension_dept.save()
 
-    design_dept.owner_id = str(bob.id)
-    design_dept.member_ids = [str(bob.id)]
-    await design_dept.save()
+    rollcage_dept.owner_id = str(vp.id)
+    rollcage_dept.member_ids = [str(vp.id)]
+    await rollcage_dept.save()
 
-    # 4. Create achievements
-    ach_first_blood = models.Achievement(title="First Blood", description="Complete your first task.", badge_icon="🌟", xp_reward=20)
-    ach_streak = models.Achievement(title="3-Day Streak", description="Log in for 3 consecutive days.", badge_icon="🔥", xp_reward=30)
-    ach_speedster = models.Achievement(title="Speedster", description="Submit a task before the deadline.", badge_icon="⚡", xp_reward=15)
-    ach_team_player = models.Achievement(title="Team Player", description="Complete 10 tasks.", badge_icon="🏆", xp_reward=50)
+    mpt_dept.owner_id = str(alice.id)
+    mpt_dept.member_ids = [str(alice.id)]
+    await mpt_dept.save()
 
-    await ach_first_blood.insert()
-    await ach_streak.insert()
-    await ach_speedster.insert()
-    await ach_team_player.insert()
+    ept_dept.owner_id = str(bob.id)
+    ept_dept.member_ids = [str(bob.id)]
+    await ept_dept.save()
 
-    # Award charlie the first achievement
-    ua = models.UserAchievement(user_id=str(charlie.id), achievement_id=str(ach_first_blood.id))
-    await ua.insert()
+    brakes_dept.owner_id = str(charlie.id)
+    brakes_dept.member_ids = [str(charlie.id)]
+    await brakes_dept.save()
 
-    # 5. Create tasks
+    # 4. Create tasks
     t1 = models.Task(
         title="Build REST API Endpoints",
         description="Create the full set of REST API endpoints for the task management module, including CRUD for tasks, submissions, and user profiles.",
@@ -156,7 +163,7 @@ async def seed():
         status="in_progress",
         assigned_to=str(charlie.id),
         assigned_by=str(alice.id),
-        department_id=str(software_dept.id),
+        department_id=str(brakes_dept.id),
     )
     t2 = models.Task(
         title="Design Kanban Board UI",
@@ -166,7 +173,7 @@ async def seed():
         status="pending",
         assigned_to=str(charlie.id),
         assigned_by=str(alice.id),
-        department_id=str(software_dept.id),
+        department_id=str(brakes_dept.id),
     )
     t3 = models.Task(
         title="Write Unit Tests",
@@ -176,7 +183,7 @@ async def seed():
         status="pending",
         assigned_to=str(charlie.id),
         assigned_by=str(alice.id),
-        department_id=str(software_dept.id),
+        department_id=str(brakes_dept.id),
     )
     t4 = models.Task(
         title="Create Branding Guidelines",
@@ -186,7 +193,7 @@ async def seed():
         status="pending",
         assigned_to=str(bob.id),
         assigned_by=str(president.id),
-        department_id=str(design_dept.id),
+        department_id=str(ept_dept.id),
     )
     await t1.insert()
     await t2.insert()

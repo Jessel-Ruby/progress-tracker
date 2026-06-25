@@ -27,8 +27,6 @@ ALL_DOCUMENT_MODELS = [
     models.Task,
     models.TaskSubmission,
     models.ActivityLog,
-    models.Achievement,
-    models.UserAchievement,
     models.Notification,
     models.Department,
 ]

@@ -24,3 +24,19 @@ class DepartmentResponse(BaseModel):
 
 class DepartmentMemberAdd(BaseModel):
     user_id: str
+
+class MemberTaskProgress(BaseModel):
+    title: str
+    status: str
+
+class MemberProgress(BaseModel):
+    username: str
+    task_counts_by_status: dict[str, int]
+    tasks: List[MemberTaskProgress]
+
+class DepartmentProgressResponse(BaseModel):
+    total_tasks: int
+    completed_tasks: int
+    progress_percent: float
+    per_member: List[MemberProgress]
+

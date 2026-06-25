@@ -152,7 +152,7 @@ export default function SubmissionReview() {
       >
         {/* Task title + status badge */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6 pb-4 border-b border-white/10">
-          <h2 className="text-xl font-bold neon-text">{submission.task_title}</h2>
+          <h2 className="text-xl font-bold text-[#9AD872]">{submission.task_title}</h2>
           <span
             className={`text-xs px-3 py-1 rounded-full border font-semibold uppercase tracking-wider w-fit ${
               statusColors[submission.status] || 'bg-white/10 text-gray-400'

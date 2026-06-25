@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, YAxis } from 'recharts';
 import api from '../services/api';
 import useAuthStore from '../store/useAuthStore';
-import { Zap, Trophy, Target, Star, Loader2 } from 'lucide-react';
+import { Zap, Target, Star, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { getErrorMessage } from '../utils/apiError';
 
@@ -42,7 +42,7 @@ export default function Analytics() {
       </motion.div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        <div className="glass-panel p-6 flex items-center gap-4">
+        <div className="glass-panel p-6 flex items-center gap-4 border-neonGreen">
           <div className="p-3 bg-neonBlue/10 rounded-xl text-neonBlue">
             <Zap size={24} />
           </div>
@@ -51,8 +51,8 @@ export default function Analytics() {
             <p className="text-2xl font-bold text-white">{user.xp}</p>
           </div>
         </div>
-        <div className="glass-panel p-6 flex items-center gap-4">
-          <div className="p-3 bg-neonPurple/10 rounded-xl text-neonPurple">
+        <div className="glass-panel p-6 flex items-center gap-4 border-neonGreen">
+          <div className="p-3 bg-neonPurple/10 rounded-xl text-neonPurple ">
             <Star size={24} />
           </div>
           <div>
@@ -60,13 +60,13 @@ export default function Analytics() {
             <p className="text-2xl font-bold text-white">{user.level}</p>
           </div>
         </div>
-        <div className="glass-panel p-6 flex items-center gap-4">
+        <div className="glass-panel p-6 flex items-center gap-4 border-neonGreen">
           <div className="p-3 bg-neonGreen/10 rounded-xl text-neonGreen">
-            <Trophy size={24} />
+            <Target size={24} />
           </div>
           <div>
-            <p className="text-sm text-gray-400">Contribution Score</p>
-            <p className="text-2xl font-bold text-white truncate">{user.contribution_score ?? 0}</p>
+            <p className="text-sm text-gray-400">Day Streak</p>
+            <p className="text-2xl font-bold text-white">{user.streak}</p>
           </div>
         </div>
         <div className="glass-panel p-6 flex items-center gap-4">
@@ -80,7 +80,7 @@ export default function Analytics() {
         </div>
       </div>
 
-      <div className="glass-panel p-6">
+      <div className="glass-panel p-6 border-neonGreen">
         <h3 className="text-xl font-bold mb-6 text-white">Tasks Completed (7 Days)</h3>
         <div className="h-64 flex items-center justify-center">
           {loading ? (
@@ -99,7 +99,7 @@ export default function Analytics() {
                   cursor={{ fill: 'rgba(255,255,255,0.05)' }}
                   contentStyle={{ backgroundColor: '#1a1a2e', border: '1px solid rgba(255,255,255,0.1)' }}
                 />
-                <Bar dataKey="completed" fill="#00f3ff" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="completed" fill="#2fff00ff" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           )}

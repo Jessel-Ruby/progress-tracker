@@ -53,3 +53,25 @@ async def upload_profile_image(
     current_user.profile_image = file_url
     await current_user.save()
     return current_user
+
+@router.delete("/{user_id}")
+async def remove_user(user_id: str, current_user: models.User = Depends(auth.get_current_active_user)):
+    from core.permissions import can_approve_signups
+    from fastapi import HTTPException
+    
+    if not can_approve_signups(current_user):
+        raise HTTPException(status_code=403, detail="Not authorized to remove users")
+    
+    user_to_delete = await models.User.get(user_id)
+    if not user_to_delete:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    await user_to_delete.delete()
+    
+    # Reassign or null out tasks assigned to this user
+    await models.Task.find({"assigned_to": user_id}).update({"$set": {"assigned_to": None}})
+    
+    # Remove user_id from any Department.member_ids list that contains it
+    await models.Department.find({"member_ids": user_id}).update({"$pull": {"member_ids": user_id}})
+    
+    return {"message": "User removed successfully"}
