@@ -127,7 +127,7 @@ export default function TaskDetail() {
                 src={
                   task.voice_note_path.startsWith('http://') || task.voice_note_path.startsWith('https://')
                     ? task.voice_note_path
-                    : `http://localhost:8000/${task.voice_note_path}`
+                    : `${import.meta.env.VITE_API_URL}/${task.voice_note_path}`
                 }
                 controls
                 className="w-full h-10"
