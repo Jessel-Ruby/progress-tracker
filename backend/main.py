@@ -6,7 +6,7 @@ from core.database import db
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
-import model
+import models
 from routers import auth, tasks, analytics, departments
 
 app = FastAPI(
